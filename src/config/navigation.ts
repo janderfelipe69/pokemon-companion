@@ -1,0 +1,37 @@
+import {
+  LayoutDashboard,
+  BookOpen,
+  Layers,
+  Sparkles,
+  ScrollText,
+  Map,
+  Swords,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
+
+export type NavItem = {
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+export const mainNav: NavItem[] = [
+  { href: "/", label: "Dashboard", description: "Visão geral do projeto", icon: LayoutDashboard },
+  { href: "/pokedex", label: "Pokédex", description: "Consulte os Pokémon e seus dados", icon: BookOpen },
+  { href: "/tiers", label: "Tiers e valores", description: "Classificações e valores de referência", icon: Layers },
+  { href: "/drops", label: "Drops de talentos", description: "Origem e chances de talentos", icon: Sparkles },
+  { href: "/pokelog", label: "Pokélog", description: "Registro de capturas e eventos", icon: ScrollText },
+  { href: "/rotas-farm", label: "Rotas de farm", description: "Sugestões de locais para farmar", icon: Map },
+  { href: "/montador-times", label: "Montador de times", description: "Monte e compare seus times", icon: Swords },
+];
+
+export const adminNav: NavItem = {
+  href: "/admin",
+  label: "Administração",
+  description: "Área restrita de gerenciamento",
+  icon: ShieldCheck,
+};
+
+export const allNav: NavItem[] = [...mainNav, adminNav];

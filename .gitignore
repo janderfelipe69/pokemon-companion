@@ -1,0 +1,9 @@
+node_modules
+.next
+next-env.d.ts
+*.tsbuildinfo
+
+# Variáveis de ambiente e segredos (nunca versionar)
+.env
+.env.*
+!.env.example
