@@ -167,3 +167,55 @@ Banco de dados e autenticação, e então a área de administração para cadast
 
 ### Pendente
 Seus passos manuais (criar projeto, rodar os dois SQL, preencher `.env.local`, criar o administrador). Depois: login, área administrativa protegida (editar preços, tiers, tipos, observações), cadastro de drops, publicação, Pokélog, rotas de farm, montador de times. A Pokédex segue com dados de demonstração.
+
+---
+
+## Etapa 6 — Pokédex integrada aos dados reais (concluída)
+
+### Fontes de dados
+- **Registro, tier, preços e tipo ofensivo:** os mesmos 854 registros de Tiers e Valores (`getCatalog()`), sem segunda lista. A Pokédex só lê; nada é copiado nem alterado.
+- **Tipos ofensivos das skills:** `listedType` do registro (ou `offensiveTypes`, se o banco tiver vários). Nunca deduzidos da tipagem original.
+- **Tipos originais:** `src/data/pokedexReference.ts`, gerado de dados estruturados do PokéAPI (CSV oficial no GitHub). Separado do campo de Tiers e Valores.
+- **Imagens:** PokeAPI/sprites (`official-artwork`; `showdown` como alternativa, ainda não necessária). URLs montadas a partir de IDs, sem requisição por card. Base configurável em `src/config/images.ts`.
+
+### Associação (exata, sem comparar nomes soltos)
+ID do registro (sem o prefixo `shiny-`) → espécie do PokéAPI (normalização fixa + 2 exceções explícitas: Nidoran fêmea/macho) → forma padrão da espécie, ou `<espécie>-mega` para Mega → tipos e imagem dessa forma. Shiny usa os tipos da forma e a imagem `shiny/` correspondente; **nunca** cai para a imagem normal.
+
+### O que foi feito
+- Pokédex em grade de cards (imagem, nome, variante, tipos originais, tipos ofensivos das skills, tier e preços quando existem), com esqueleto de carregamento, fallback de imagem e "Mostrar mais" (48 por vez).
+- Busca por nome (sem acento/maiúsculas, inclui "Shiny"/"Mega") e filtros combináveis: tipo original, tipo ofensivo, tier (inclui "não definido") e variante (lida dos dados). Botão para limpar e contador de resultados.
+- Ficha detalhada em janela modal (`Dialog`, `<dialog>` nativo), com seção de pendências do registro e fácil de estender (nova `<Section>`).
+- `src/data/pokedexOverrides.ts` (vazio): corrige/completa tipos e imagem por ID de registro, para Pokémon customizados do servidor.
+- Removidos: dados de demonstração, `isDemo` e o filtro antigo da Pokédex.
+- Nenhuma alteração no banco, nas migrações ou em Tiers e Valores.
+
+### Arquivos
+Criados: `src/types/pokedex.ts`, `src/data/pokedexReference.ts` (gerado), `src/data/pokedexOverrides.ts`, `src/config/images.ts`, `src/lib/pokedex.ts`, `src/lib/pokedexFilters.ts`, `src/components/ui/Dialog.tsx`, `src/components/pokedex/{PokemonImage,TypeGroup,PokemonDetail}.tsx`, `src/components/tiers/TierLabel.tsx`, `scripts/generate-pokedex-reference.ts`, `scripts/check-pokedex.ts`.
+Reescritos: `src/app/pokedex/page.tsx`, `src/components/pokedex/{PokedexBrowser,PokemonCard}.tsx`.
+Modificados: `src/types/pokemon.ts`, `src/lib/pokemonFilters.ts` (só `normalize`), `package.json` (scripts `pokedex:generate` e `check:pokedex`).
+Removido: `src/data/demoPokemon.ts`.
+
+### Comandos
+- `npm run check:pokedex`: 12 verificações de integridade.
+- `npm run pokedex:generate`: regenera `pokedexReference.ts` (precisa de internet). Rode após mudar a lista de Pokémon.
+
+### Resultado da integração
+- 854 registros (423 Shiny, 5 Mega, 426 normais); 430 de 431 formas resolvidas.
+- **Pendentes (2 registros):** `Lopuny` e `Shiny Lopuny`: o nome não existe no PokéAPI (provável erro de digitação). Ficam com tipos originais "Indisponível" e sem imagem. Correção: ajustar o nome em `pokemonSource.ts` (e rodar `pokedex:generate`) ou adicionar `"lopuny": { originalTypes: [...], imageUrl: "..." }` em `pokedexOverrides.ts` com os dados corretos.
+- Todas as outras 852 imagens distintas foram verificadas (HTTP 200, `image/*`); nenhuma variante Shiny/Mega ficou sem imagem.
+
+### Testes
+- `npm run lint`, `npm run build` e `check:pokedex` (12/12) sem erros; 9 rotas com HTTP 200; sem erros no log do servidor; Tiers e Valores com 854 linhas e contagens iguais.
+- Imagens do Shiny Blaziken e da Mega Clefable conferidas visualmente.
+- **Não testado em navegador** (não há navegador no ambiente): cliques, janela de detalhes, filtros na tela, layout em celular e console do navegador. A lógica por trás (busca, filtros, associação) está coberta pelo script.
+
+### Aviso de uso das imagens
+O repositório PokeAPI/sprites não traz licença para as imagens; as artes são da Nintendo, Game Freak e The Pokémon Company. O site mostra aviso e atribuição e deve ser usado sem fins comerciais. Se o site for monetizado, o uso das imagens pode exigir autorização (consulte um profissional). A fonte pode ser trocada em `src/config/images.ts`.
+
+### Limitações
+- Imagens vêm de `raw.githubusercontent.com` (ok para projeto pequeno; não é um CDN com garantia). ~133 KB por imagem, carregadas sob demanda.
+- Tipagem original reflete os dados atuais do PokéAPI.
+- Filtro de tipo original não tem opção "indisponível".
+
+### Próximo passo sugerido
+Login e área administrativa (editar preços, tiers, tipos e observações), com a edição de `pokedexOverrides` possivelmente movida para o banco.

@@ -46,8 +46,9 @@ export type Pokemon = {
   /** Nome exatamente como aparece na lista importada (inclui "Shiny", "Mega" etc.). */
   sourceName?: string;
   /**
-   * Tipo único informado na lista importada. A fonte não diz se é defensivo ou ofensivo,
-   * por isso ele não é copiado para `defensiveTypes` nem `offensiveTypes`. `null` = não definido.
+   * Tipo único informado na lista importada de Tiers e Valores: é o tipo ofensivo das skills do
+   * Pokémon no jogo (não a tipagem original da espécie, que fica em `pokedexReference.ts`).
+   * `null` = não definido.
    */
   listedType?: PokemonType | null;
   /** Origem na lista importada: linha e valores brutos de tier e tipo ("?" e vazio incluídos). */
@@ -57,8 +58,6 @@ export type Pokemon = {
   /** Preço em reais. `null`/ausente = não definido; "0" é um preço cadastrado. */
   priceBrl?: DecimalString | null;
   notes?: string;
-  /** Indica dado fictício, usado para demonstração. */
-  isDemo?: boolean;
   /** Reservado para a etapa de drops de talentos. */
   talentDrops?: TalentDrop[];
 };
