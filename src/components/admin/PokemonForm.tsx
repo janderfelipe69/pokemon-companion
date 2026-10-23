@@ -90,6 +90,8 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!fields.tier) return setError("Escolha o tier do Pokémon.");
+    if (fields.offensiveTypes.length < 1) return setError("Escolha pelo menos 1 tipo ofensivo (máximo 2).");
     setSaving(true);
     setError("");
     try {
@@ -100,7 +102,7 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
           id: record.id,
           name: record.name,
           variant: record.variant,
-          tier: fields.tier || null,
+          tier: fields.tier,
           listedType: fields.offensiveTypes[0] ?? null,
           defensiveTypes: originalTypes,
           offensiveTypes: fields.offensiveTypes,
@@ -178,9 +180,9 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <label className={labelClass}>
-            Tier
-            <select value={fields.tier} onChange={(e) => setFields({ ...fields, tier: e.target.value })} className={inputClass}>
-              <option value="">Sem tier</option>
+            Tier <span className="text-xs text-red-300">(obrigatório)</span>
+            <select required value={fields.tier} onChange={(e) => setFields({ ...fields, tier: e.target.value })} className={inputClass}>
+              <option value="" disabled>Selecione o tier</option>
               {TIERS.map((tier) => <option key={tier} value={tier}>{tier}</option>)}
             </select>
           </label>
@@ -196,7 +198,7 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
         <p className="-mt-3 text-xs text-muted">Preço em branco = usa o preço do tier.</p>
 
         <fieldset>
-          <legend className="mb-2 text-sm text-muted">Tipos ofensivos das skills (máximo 2)</legend>
+          <legend className="mb-2 text-sm text-muted">Tipos ofensivos das skills (1 a 2) <span className="text-xs text-red-300">(obrigatório)</span></legend>
           <div className="flex flex-wrap gap-2">
             {POKEMON_TYPES.map((type) => {
               const on = fields.offensiveTypes.includes(type);

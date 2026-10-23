@@ -32,7 +32,7 @@ type PokemonInput = {
 };
 
 function parsePrice(value: unknown): number | null | undefined {
-  if (value === null || value === "") return null;
+  if (value === undefined || value === null || value === "") return null;
   if (typeof value !== "string" && typeof value !== "number") {
     return undefined;
   }
@@ -165,22 +165,38 @@ export async function POST(request: Request) {
     const evolution = optionalText(body.evolution, 200);
     const evolutionItem = optionalText(body.evolutionItem, 200);
 
+    // Os helpers devolvem `undefined` tanto para "campo não enviado" (válido, opcional)
+    // quanto para "valor inválido". Só é erro quando o campo veio no corpo e não foi aceito.
+    const rejected = (raw: unknown, parsed: unknown) =>
+      raw !== undefined && parsed === undefined;
+
+    if (body.tier == null) {
+      return NextResponse.json(
+        { error: "Escolha o tier do Pokémon." },
+        { status: 400 },
+      );
+    }
+
+    if (!offensiveTypes || offensiveTypes.length < 1) {
+      return NextResponse.json(
+        { error: "Escolha pelo menos 1 tipo ofensivo (máximo 2)." },
+        { status: 400 },
+      );
+    }
+
     if (
       !defensiveTypes ||
-      !offensiveTypes ||
       defensiveTypes.length > 2 ||
       offensiveTypes.length > 2 ||
       priceKk === undefined ||
       priceBrl === undefined ||
-      pokedexNumber === undefined ||
-      level === undefined ||
-      gameType === undefined ||
-      imageUrl === undefined ||
-      evolution === undefined ||
-      evolutionItem === undefined ||
-      (imageUrl !== null &&
-        imageUrl !== undefined &&
-        !/^https:\/\/\S+$/i.test(imageUrl))
+      rejected(body.pokedexNumber, pokedexNumber) ||
+      rejected(body.level, level) ||
+      rejected(body.gameType, gameType) ||
+      rejected(body.imageUrl, imageUrl) ||
+      rejected(body.evolution, evolution) ||
+      rejected(body.evolutionItem, evolutionItem) ||
+      (typeof imageUrl === "string" && !/^https:\/\/\S+$/i.test(imageUrl))
     ) {
       return NextResponse.json(
         { error: "Confira as tipagens, preços e dados adicionais." },
