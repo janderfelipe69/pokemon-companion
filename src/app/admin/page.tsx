@@ -1,5 +1,6 @@
 ﻿
 import { AdminLogin } from "@/components/admin/AdminLogin";
+import { LogoutButton } from "@/components/admin/LogoutButton";
 import { PokemonManager } from "@/components/admin/PokemonManager";
 import { TierPricesManager } from "@/components/admin/TierPricesManager";
 import { isAdminAuthenticated } from "@/lib/auth/session";
@@ -32,14 +33,9 @@ export default async function Page() {
           Gerencie Pokémon, tipagens e preços diretamente pelo site.
         </p>
 
-        <form action="/api/admin/logout" method="post" className="mt-6">
-          <button
-            type="submit"
-            className="rounded-lg border border-white/15 px-4 py-2 transition hover:bg-white/10"
-          >
-            Sair do painel
-          </button>
-        </form>
+        <div className="mt-6">
+          <LogoutButton />
+        </div>
       </div>
 
       <TierPricesManager />
