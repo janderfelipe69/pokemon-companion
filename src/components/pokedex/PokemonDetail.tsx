@@ -50,6 +50,20 @@ export function PokemonDetail({ entry }: { entry: PokedexEntry }) {
             <p className="text-sm font-medium tabular-nums">{formatBrl(p.priceBrl)}</p>
           </Section>
         </div>
+        {(p.evolution || p.evolutionItem) && (
+          <div className="grid grid-cols-2 gap-4">
+            {p.evolution && (
+              <Section title="Evolução">
+                <p className="text-sm font-medium">{p.evolution}</p>
+              </Section>
+            )}
+            {p.evolutionItem && (
+              <Section title="Item de evolução">
+                <p className="text-sm font-medium">{p.evolutionItem}</p>
+              </Section>
+            )}
+          </div>
+        )}
         {p.notes && (
           <Section title="Observações">
             <p className="text-sm">{p.notes}</p>

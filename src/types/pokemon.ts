@@ -67,6 +67,14 @@ export type Pokemon = {
   /** Preço em reais. `null`/ausente = não definido; "0" é um preço cadastrado. */
   priceBrl?: DecimalString | null;
   notes?: string;
+  /** Número na Pokédex nacional, quando cadastrado pelo administrador. */
+  pokedexNumber?: number | null;
+  /** URL de imagem cadastrada pelo administrador (usada quando não há imagem na referência). */
+  imageUrl?: string | null;
+  /** Próxima(s) evolução(ões), em texto. */
+  evolution?: string | null;
+  /** Item necessário para evoluir (opcional). */
+  evolutionItem?: string | null;
   /** Reservado para a etapa de drops de talentos. */
   talentDrops?: TalentDrop[];
 };

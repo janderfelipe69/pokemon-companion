@@ -27,13 +27,15 @@ export function buildPokedexEntry(p: Pokemon): PokedexEntry {
     ? { src: override.imageUrl, kind: "custom" as const }
     : imagePath
       ? { src: spriteUrl(imagePath), kind: imagePath.includes("showdown") ? ("showdown" as const) : ("official-artwork" as const) }
-      : null;
+      : p.imageUrl
+        ? { src: p.imageUrl, kind: "custom" as const } // cadastrado pelo administrador (Pokémon fora da referência)
+        : null;
 
   return {
     pokemon: p,
     formKey,
-    dexNumber: ref?.dexNumber ?? null,
-    originalTypes: override?.originalTypes ?? ref?.types ?? null,
+    dexNumber: ref?.dexNumber ?? p.pokedexNumber ?? null,
+    originalTypes: override?.originalTypes ?? ref?.types ?? (p.defensiveTypes.length > 0 ? p.defensiveTypes : null),
     offensiveTypes: skillTypesOf(p),
     image,
   };

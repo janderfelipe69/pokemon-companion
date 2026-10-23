@@ -263,3 +263,24 @@ Modificados: `src/config/navigation.ts` (item no menu), `next.config.ts` (`outpu
 
 ### Verificação
 `tsc --noEmit` sem erros. `npm run build` e o teste no navegador devem ser feitos localmente (ver checklist na conversa).
+
+---
+
+## Etapa 9 — Pokédex global e cadastro simplificado (concluída no código; teste local pendente)
+
+### O que foi feito
+- **Pokédex global** (aba no cadastro do admin): todas as formas do PokéAPI (espécies, Mega, Primal, Alolan, Galarian, Hisuian, Paldean) com número, tipos originais e evoluções. Fica separada do catálogo do site: só o que você adiciona é publicado.
+- **Cadastro simplificado:** escolhe o Pokémon na global e abre a janela já preenchida. Nome, ID, variante, número, tipos oficiais, evolução e imagem são automáticos. Normal/Shiny é um botão. Você preenche só tier, preços individuais (opcionais), tipos ofensivos (máx. 2), item de evolução (opcional), Pokélog e observações. Removidos: nível no jogo e tipo/categoria.
+- **Aba "Meu catálogo":** lista com busca, miniatura e botão Editar (nome, ID e variante dos registros existentes são preservados).
+- **Pokédex pública** agora usa número, imagem, tipos e evolução gravados no banco para Pokémon que não estão em `pokedexReference.ts` (os 854 atuais continuam iguais).
+
+### Passo manual (uma vez, com internet)
+`npm run dex:global` gera `src/data/globalDex.ts` com todos os Pokémon. Sem isso, a global usa só as formas de `pokedexReference.ts` (lista parcial, sem evoluções). Faça commit do arquivo gerado.
+
+### Arquivos
+Criados: `scripts/{global-dex-builder,generate-global-dex}.ts`, `src/types/globalDex.ts`, `src/data/globalDex.ts` (gerado), `src/lib/globalDex.ts`, `src/components/admin/{types.ts,GlobalDexBrowser.tsx,PokemonForm.tsx}`.
+Reescrito: `src/components/admin/PokemonManager.tsx`.
+Modificados: `src/types/pokemon.ts`, `src/lib/supabase/catalog.ts`, `src/lib/pokedex.ts`, `src/components/pokedex/PokemonDetail.tsx`, `package.json` (script `dex:global`).
+
+### Verificação
+`tsc --noEmit` e `check:pokedex` (12/12) sem erros. Construtor da global testado com dados de exemplo (regionais, Mega, evoluções exclusivas de forma regional). Interface testada em Chromium com servidor simulado: busca, formulário, Shiny, forma regional, edição, payload enviado. **Não verificado:** visual com Tailwind e `npm run build` (sem Next/Tailwind para Linux no ambiente).

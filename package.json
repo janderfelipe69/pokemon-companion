@@ -9,7 +9,8 @@
     "lint": "tsc --noEmit",
     "db:seed:generate": "npx tsx scripts/generate-seed.ts",
     "pokedex:generate": "npx tsx scripts/generate-pokedex-reference.ts",
-    "check:pokedex": "npx tsx scripts/check-pokedex.ts"
+    "check:pokedex": "npx tsx scripts/check-pokedex.ts",
+    "dex:global": "npx tsx scripts/generate-global-dex.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

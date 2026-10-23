@@ -29,6 +29,10 @@ export type PokemonRow = {
   source_tier_raw: string | null;
   source_type_raw: string | null;
   source_line: number | null;
+  pokedex_number: number | null;
+  image_url: string | null;
+  evolution: string | null;
+  evolution_item: string | null;
   pokemon_defensive_types: { type_code: string; position: number }[] | null;
   pokemon_offensive_types: { type_code: string; position: number }[] | null;
 };
@@ -43,6 +47,7 @@ const SELECT = [
   "id", "name", "variant", "tier", "listed_type", "notes",
   "price_kk::text", "price_brl::text",
   "source_name", "source_tier_raw", "source_type_raw", "source_line",
+  "pokedex_number", "image_url", "evolution", "evolution_item",
   "pokemon_defensive_types(type_code, position)",
   "pokemon_offensive_types(type_code, position)",
 ].join(", ");
@@ -73,6 +78,10 @@ export function mapRowToPokemon(row: PokemonRow): Pokemon {
     tier: TIERS.find((t) => t === row.tier) ?? null,
     listedType: POKEMON_TYPES.find((t) => t === row.listed_type) ?? null,
     ...(row.notes ? { notes: row.notes } : {}),
+    ...(row.pokedex_number != null ? { pokedexNumber: row.pokedex_number } : {}),
+    ...(row.image_url ? { imageUrl: row.image_url } : {}),
+    ...(row.evolution ? { evolution: row.evolution } : {}),
+    ...(row.evolution_item ? { evolutionItem: row.evolution_item } : {}),
     ...(row.source_name ? { sourceName: row.source_name } : {}),
     ...(row.source_line != null
       ? {
