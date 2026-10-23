@@ -219,3 +219,47 @@ O repositório PokeAPI/sprites não traz licença para as imagens; as artes são
 
 ### Próximo passo sugerido
 Login e área administrativa (editar preços, tiers, tipos e observações), com a edição de `pokedexOverrides` possivelmente movida para o banco.
+
+---
+
+## Etapa 7 — Página Guilda (imagem do progresso semanal) (concluída)
+
+### O que foi feito
+- Nova página **/guilda** (item "Guilda" no menu): monta no navegador a imagem de progresso semanal da guilda a partir do JSON exportado do jogo. É a mesma imagem da skill `daylis-guild`, agora desenhada em `<canvas>` (2x, nítida).
+- **JSON direto da pasta:** a página lê `data/guild/*.json` a cada acesso e mostra a exportação mais recente. Um JSON novo na pasta aparece ao recarregar. Seletor para abrir dias anteriores.
+- A exportação imediatamente anterior da pasta é usada para mostrar variação de nível (+N / -N) e quem entrou ou saiu da guilda.
+- Botões: **Baixar PNG**, **Copiar imagem** (para colar no Discord/WhatsApp), **Enviar JSON** (vê a imagem sem salvar nada) e, só para quem está logado na Administração, **Salvar na pasta** (grava o JSON enviado em `data/guild`).
+- Tudo em **pontos**: nenhum valor de saldo aparece na imagem. 300 de doação = 1 ponto (arredondado para baixo; o resto é ignorado).
+
+### Regras (um só lugar: `src/lib/guild/board.ts`, constante `GUILD_RULES`)
+Meta 60 pontos; máximo semanal de pontos de diárias 168 (42 x 4: escala da barra e destaque dourado); barra de doações em escala de 44 pontos; em risco abaixo de 50% da meta.
+
+### Arquivos
+Criados: `src/lib/guild/{types,parse,board,render,files}.ts`, `src/components/guild/GuildBoard.tsx`, `src/app/guilda/page.tsx`, `src/app/api/admin/guild/route.ts`, `public/guild/emblem.png`, `data/guild/` (JSON de exemplo e `LEIA-ME.md`).
+Modificados: `src/config/navigation.ts` (item no menu), `next.config.ts` (`outputFileTracingIncludes` para levar `data/guild` no build serverless).
+
+### Limitações
+- "Salvar na pasta" só grava onde o disco é gravável (local / servidor próprio). Em hospedagem de disco somente leitura (ex.: Vercel) ele avisa o erro; nesse caso coloque o arquivo em `data/guild` e publique de novo.
+- A pasta `data/guild` vai para o repositório: se o repositório for público, nomes e doações dos membros ficam públicos.
+- Apenas o formato JSON (com `points`). O CSV antigo (`dailiesCompleted`) não é lido pelo site.
+
+### Verificação
+- Módulos de cálculo e desenho checados com `tsc --strict`; totais conferidos contra o script Python com o JSON real (798 / 216 / 1014 / 56% / 11 em risco).
+- Componente testado em Chromium (Playwright): desenho, emblema, PNG baixado, envio de JSON válido/inválido, seletor, botão salvar só com admin.
+- Leitura da pasta testada em Node: ordenação, arquivos quebrados ignorados com aviso, duplicado recusado, nome de arquivo sanitizado.
+- **Não testado:** `npm run build` com Next real e o visual com Tailwind (sem `node_modules`/rede no ambiente de teste). Rode `npm run lint` e `npm run build` localmente.
+
+---
+
+## Etapa 8 — Guilda restrita ao administrador (concluída no código; teste local pendente)
+
+### O que foi feito
+- **/guilda** agora exige a sessão de administrador. Sem login, a página mostra só o formulário de senha da Administração e **não lê `data/guild` nem envia dados da guilda ao navegador**. Depois de entrar, a página recarrega já com a guilda. A página também ganhou `noindex`.
+- O item **Guilda** do menu (`adminOnly: true` em `src/config/navigation.ts`) só aparece para quem está logado; o atalho também sai do Dashboard. Isso é só visual: a proteção real é no servidor.
+- `POST /api/admin/guild` (salvar JSON na pasta) já exigia admin e continua igual.
+
+### Arquivos modificados
+`src/app/guilda/page.tsx`, `src/config/navigation.ts`, `src/components/layout/{AppShell,Sidebar}.tsx`, `src/app/page.tsx`.
+
+### Verificação
+`tsc --noEmit` sem erros. `npm run build` e o teste no navegador devem ser feitos localmente (ver checklist na conversa).

@@ -27,14 +27,14 @@ function NavLink({ item, onNavigate, soon }: { item: NavItem; onNavigate?: () =>
   );
 }
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function Sidebar({ onNavigate, isAdmin = false }: { onNavigate?: () => void; isAdmin?: boolean }) {
   return (
     <div className="flex h-full flex-col gap-6 p-4">
       <div className="px-2 pt-2">
         <Logo />
       </div>
       <nav aria-label="Navegação principal" className="flex flex-1 flex-col gap-1 overflow-y-auto">
-        {mainNav.map((item) => (
+        {mainNav.filter((item) => !item.adminOnly || isAdmin).map((item) => (
           <NavLink key={item.href} item={item} onNavigate={onNavigate} />
         ))}
       </nav>

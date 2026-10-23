@@ -1,12 +1,21 @@
+
 import { pokemonWithPrices } from "@/data/pokemon";
 import { parsePrice } from "@/lib/money";
-import { POKEMON_TYPES, TIERS, type DecimalString, type Pokemon, type PokemonType } from "@/types/pokemon";
+import { applyTierPrices } from "@/lib/prices";
+import {
+  POKEMON_TYPES,
+  TIERS,
+  type DecimalString,
+  type Pokemon,
+  type PokemonPrices,
+  type PokemonType,
+  type Tier,
+} from "@/types/pokemon";
 import { createPublicClient } from "./client";
 
 export type CatalogSource = "supabase" | "static";
 export type Catalog = { pokemon: Pokemon[]; source: CatalogSource };
 
-/** Linha devolvida pelo Supabase (preços chegam como texto para não perder precisão). */
 export type PokemonRow = {
   id: string;
   name: string;
@@ -22,6 +31,12 @@ export type PokemonRow = {
   source_line: number | null;
   pokemon_defensive_types: { type_code: string; position: number }[] | null;
   pokemon_offensive_types: { type_code: string; position: number }[] | null;
+};
+
+type TierPriceRow = {
+  tier_code: string;
+  price_kk: string | null;
+  price_brl: string | null;
 };
 
 const SELECT = [
@@ -40,8 +55,10 @@ function toTypes(rows: PokemonRow["pokemon_defensive_types"]): PokemonType[] {
     .flatMap((r) => POKEMON_TYPES.find((t) => t === r.type_code) ?? []);
 }
 
-/** Valor do banco -> texto canônico. Valor inválido vira `null` (não definido), nunca zero. */
-function toPrice(value: string | null, currency: "kk" | "brl"): DecimalString | null {
+function toPrice(
+  value: string | null,
+  currency: "kk" | "brl",
+): DecimalString | null {
   const result = parsePrice(value, currency);
   return result.ok ? result.value : null;
 }
@@ -58,26 +75,47 @@ export function mapRowToPokemon(row: PokemonRow): Pokemon {
     ...(row.notes ? { notes: row.notes } : {}),
     ...(row.source_name ? { sourceName: row.source_name } : {}),
     ...(row.source_line != null
-      ? { source: { line: row.source_line, tier: row.source_tier_raw ?? "", type: row.source_type_raw ?? "" } }
+      ? {
+          source: {
+            line: row.source_line,
+            tier: row.source_tier_raw ?? "",
+            type: row.source_type_raw ?? "",
+          },
+        }
       : {}),
     priceKk: toPrice(row.price_kk, "kk"),
     priceBrl: toPrice(row.price_brl, "brl"),
   };
 }
 
-const staticCatalog = (): Catalog => ({ pokemon: pokemonWithPrices, source: "static" });
+function mapTierPrices(rows: TierPriceRow[]): Partial<Record<Tier, PokemonPrices>> {
+  const result: Partial<Record<Tier, PokemonPrices>> = {};
 
-/**
- * Catálogo de Pokémon para as páginas (uso em Server Components).
- * Lê do Supabase quando configurado. Usa os arquivos do projeto se o Supabase não estiver
- * configurado, se houver erro de leitura ou se a tabela ainda estiver vazia (antes da importação).
- */
+  for (const row of rows) {
+    const tier = TIERS.find((item) => item === row.tier_code);
+    if (!tier) continue;
+
+    result[tier] = {
+      kk: toPrice(row.price_kk, "kk"),
+      brl: toPrice(row.price_brl, "brl"),
+    };
+  }
+
+  return result;
+}
+
+const staticCatalog = (): Catalog => ({
+  pokemon: pokemonWithPrices,
+  source: "static",
+});
+
 export async function getCatalog(): Promise<Catalog> {
   const client = createPublicClient();
   if (!client) return staticCatalog();
 
   try {
     const rows: PokemonRow[] = [];
+
     for (let from = 0; ; from += PAGE_SIZE) {
       const { data, error } = await client
         .from("pokemon")
@@ -85,16 +123,38 @@ export async function getCatalog(): Promise<Catalog> {
         .order("source_line", { ascending: true, nullsFirst: false })
         .order("id", { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
+
       if (error) throw new Error(error.message);
+
       const page = (data ?? []) as unknown as PokemonRow[];
       rows.push(...page);
+
       if (page.length < PAGE_SIZE) break;
     }
+
     if (rows.length === 0) {
-      console.warn("[catalog] Tabela 'pokemon' vazia: usando os arquivos do projeto. Rode a importação.");
+      console.warn("[catalog] Tabela 'pokemon' vazia: usando os arquivos do projeto.");
       return staticCatalog();
     }
-    return { pokemon: rows.map(mapRowToPokemon), source: "supabase" };
+
+    const pokemon = rows.map(mapRowToPokemon);
+
+    const { data: tierRows, error: tierError } = await client
+      .from("tier_prices")
+      .select("tier_code, price_kk::text, price_brl::text");
+
+    if (tierError) {
+      // A tabela pode ainda não ter sido criada. O catálogo continua funcionando.
+      console.warn("[catalog] Não foi possível carregar os preços por tier.");
+      return { pokemon, source: "supabase" };
+    }
+
+    const tierPrices = mapTierPrices((tierRows ?? []) as TierPriceRow[]);
+
+    return {
+      pokemon: applyTierPrices(pokemon, tierPrices),
+      source: "supabase",
+    };
   } catch (error) {
     console.warn("[catalog] Falha ao ler o Supabase; usando os arquivos do projeto.", error);
     return staticCatalog();

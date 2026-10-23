@@ -14,7 +14,7 @@ const exampleStats = [
 ];
 
 export default function DashboardPage() {
-  const shortcuts = mainNav.filter((item) => item.href !== "/");
+  const shortcuts = mainNav.filter((item) => item.href !== "/" && !item.adminOnly);
 
   return (
     <div className="space-y-10">

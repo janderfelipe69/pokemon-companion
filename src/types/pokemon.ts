@@ -8,8 +8,17 @@ export type PokemonType = (typeof POKEMON_TYPES)[number];
 
 /** Categorias de tier, na ordem em que aparecem na lista original. */
 export const TIERS = [
-  "T1", "T2", "T3", "T4", "T5", "T6", "T7",
-  "Super Rare", "Ultra Rare", "Legendary", "Mythic",
+  "Mythic",
+  "Legendary",
+  "Ultra Rare",
+  "Super Rare",
+  "T1",
+  "T2",
+  "T3",
+  "T4",
+  "T5",
+  "T6",
+  "T7",
 ] as const;
 
 export type Tier = (typeof TIERS)[number];

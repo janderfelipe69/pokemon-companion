@@ -6,6 +6,7 @@ import {
   ScrollText,
   Map,
   Swords,
+  Trophy,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -15,6 +16,8 @@ export type NavItem = {
   label: string;
   description: string;
   icon: LucideIcon;
+  /** Só aparece no menu (e só abre) para quem está logado na Administração. */
+  adminOnly?: boolean;
 };
 
 export const mainNav: NavItem[] = [
@@ -25,6 +28,7 @@ export const mainNav: NavItem[] = [
   { href: "/pokelog", label: "Pokélog", description: "Registro de capturas e eventos", icon: ScrollText },
   { href: "/rotas-farm", label: "Rotas de farm", description: "Sugestões de locais para farmar", icon: Map },
   { href: "/montador-times", label: "Montador de times", description: "Monte e compare seus times", icon: Swords },
+  { href: "/guilda", label: "Guilda", description: "Progresso semanal da guilda em imagem", icon: Trophy, adminOnly: true },
 ];
 
 export const adminNav: NavItem = {

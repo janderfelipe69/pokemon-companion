@@ -1,19 +1,33 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const close = () => setOpen(false);
+
+  // Itens restritos do menu (ex.: Guilda) só aparecem para quem está logado como admin.
+  // Isto é só conveniência visual: a proteção de verdade é feita no servidor, em cada página/rota.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/admin/session", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { authenticated: false }))
+      .then((d) => alive && setIsAdmin(d?.authenticated === true))
+      .catch(() => alive && setIsAdmin(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen">
       {/* Menu fixo no desktop */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-panel lg:block">
-        <Sidebar />
+        <Sidebar isAdmin={isAdmin} />
       </aside>
 
       {/* Menu em gaveta no celular */}
@@ -29,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <X className="size-5" aria-hidden />
             </button>
-            <Sidebar onNavigate={close} />
+            <Sidebar onNavigate={close} isAdmin={isAdmin} />
           </aside>
         </div>
       )}
