@@ -1,6 +1,7 @@
 ﻿
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { LogoutButton } from "@/components/admin/LogoutButton";
+import { MedalsManager } from "@/components/admin/MedalsManager";
 import { PokemonManager } from "@/components/admin/PokemonManager";
 import { TierPricesManager } from "@/components/admin/TierPricesManager";
 import { isAdminAuthenticated } from "@/lib/auth/session";
@@ -39,6 +40,7 @@ export default async function Page() {
       </div>
 
       <TierPricesManager />
+      <MedalsManager />
       <PokemonManager />
     </main>
   );

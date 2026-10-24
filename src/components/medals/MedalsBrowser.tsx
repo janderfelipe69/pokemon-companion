@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { Check, ChevronDown, Eraser, Search, SearchX } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
-  MAX_EQUIPPED, MEDALS, MEDAL_BY_ID, MEDAL_CATEGORIES, MEDAL_STATS, statCategory, statLabel,
+  formatAmount, KNOWN_STAT_KEYS, MAX_EQUIPPED, MEDAL_CATEGORIES, statCategory, statLabel,
   type Medal, type MedalCategory, type MedalStatKey,
 } from "@/data/medals";
-import { computeTotals, countStats, emptyMedalFilters, filterMedals, hasMedalFilters, type MedalFilters } from "@/lib/medalFilters";
+import { computeTotals, countStats, emptyMedalFilters, filterMedals, hasMedalFilters, statsInCategory, type MedalFilters } from "@/lib/medalFilters";
 import { MedalBadge } from "./MedalBadge";
 import { MedalRing } from "./MedalRing";
 
@@ -23,6 +23,11 @@ const CATEGORY_STYLE: Record<MedalCategory, { chipOn: string; chipOff: string; t
 
 const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
 
+/** Buff/debuff com a % quando ela já foi cadastrada ("Defense Boost +0.2%"); senão só o nome. */
+function chipText(key: MedalStatKey, value: number | null, sign: "+" | "−") {
+  return value == null ? `${sign} ${statLabel(key)}` : `${statLabel(key)} ${formatAmount(key, value, sign)}`;
+}
+
 function StatChips({ medal, highlight }: { medal: Medal; highlight: MedalStatKey[] }) {
   return (
     <div className="flex w-full flex-col items-center gap-1">
@@ -31,11 +36,11 @@ function StatChips({ medal, highlight }: { medal: Medal; highlight: MedalStatKey
           highlight.includes(medal.plus) ? "ring-2 ring-white/80" : ""
         }`}
       >
-        + {statLabel(medal.plus)}
+        {chipText(medal.plus, medal.plusValue, "+")}
       </span>
       {medal.minus ? (
         <span className="rounded-full bg-red-600/90 px-2 py-0.5 text-center text-[11px] font-semibold leading-tight text-white">
-          − {statLabel(medal.minus)}
+          {chipText(medal.minus, medal.minusValue, "−")}
         </span>
       ) : (
         <span className="rounded-full bg-slate-600/80 px-2 py-0.5 text-center text-[11px] font-semibold leading-tight text-slate-100">
@@ -66,33 +71,37 @@ function MedalTile({
         </span>
       )}
       <span className="absolute left-2 top-1.5 text-[10px] tabular-nums text-muted">#{medal.id}</span>
-      <MedalBadge id={medal.id} className="mt-2 size-14" />
+      <MedalBadge spriteId={medal.spriteId} className="mt-2 size-14" />
       <span className="text-sm font-semibold leading-tight">{medal.name}</span>
       <StatChips medal={medal} highlight={highlight} />
     </button>
   );
 }
 
-export function MedalsBrowser() {
+export function MedalsBrowser({ medals }: { medals: Medal[] }) {
   const [filters, setFilters] = useState<MedalFilters>(emptyMedalFilters);
   const [picked, setPicked] = useState<number[]>([]);
 
-  const results = useMemo(() => filterMedals(MEDALS, filters), [filters]);
-  const counts = useMemo(() => countStats(MEDALS), []);
-  const equipped = useMemo(() => picked.map((id) => MEDAL_BY_ID.get(id)).filter((m): m is Medal => !!m), [picked]);
-  const totals = useMemo(() => computeTotals(equipped), [equipped]);
+  const byId = useMemo(() => new Map(medals.map((m) => [m.id, m])), [medals]);
+  const results = useMemo(() => filterMedals(medals, filters), [medals, filters]);
+  const counts = useMemo(() => countStats(medals), [medals]);
+  const equipped = useMemo(() => picked.map((id) => byId.get(id)).filter((m): m is Medal => !!m), [picked, byId]);
+  const { totals, missing } = useMemo(() => computeTotals(equipped), [equipped]);
   const full = picked.length >= MAX_EQUIPPED;
 
   const update = (patch: Partial<MedalFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const togglePick = (id: number) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= MAX_EQUIPPED ? p : [...p, id]));
 
   // Só mostra como "preset" os buffs que alguma medalha realmente dá; idem para debuffs a evitar.
-  const plusByCategory = MEDAL_CATEGORIES.map((c) => ({
-    ...c,
-    stats: (Object.keys(MEDAL_STATS) as MedalStatKey[]).filter((k) => statCategory(k) === c.key && counts.plus.has(k)),
-  })).filter((c) => c.stats.length > 0);
-  const avoidStats = (Object.keys(MEDAL_STATS) as MedalStatKey[]).filter((k) => counts.minus.has(k));
-  const noDebuffCount = MEDALS.filter((m) => m.minus === null).length;
+  // Buffs conhecidos primeiro (na ordem de sempre), depois os que o admin tiver criado.
+  const orderStats = (keys: Iterable<MedalStatKey>) => {
+    const set = new Set(keys);
+    const known = KNOWN_STAT_KEYS.filter((k) => set.has(k));
+    return [...known, ...[...set].filter((k) => !known.includes(k as (typeof known)[number]))];
+  };
+  const plusByCategory = MEDAL_CATEGORIES.map((c) => ({ ...c, stats: statsInCategory(orderStats(counts.plus.keys()), c.key) })).filter((c) => c.stats.length > 0);
+  const avoidStats = orderStats(counts.minus.keys());
+  const noDebuffCount = medals.filter((m) => m.minus === null).length;
 
   const chip = (key: MedalStatKey, active: boolean, onClick: () => void, count: number) => {
     const style = CATEGORY_STYLE[statCategory(key)];
@@ -210,13 +219,17 @@ export function MedalsBrowser() {
                   <li key={key} className="flex items-center justify-between gap-3">
                     <span className="text-cyan-300">{statLabel(key)}</span>
                     <span className={`font-semibold tabular-nums ${value > 0 ? "text-green-400" : "text-red-400"}`}>
-                      {value > 0 ? `+${value}` : `−${Math.abs(value)}`}
+                      {formatAmount(key, Math.abs(value), value > 0 ? "+" : "−")}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
-            <p className="mt-3 text-xs text-muted">Cada medalha vale ±1 unidade; o jogo converte essas unidades no valor final.</p>
+            {missing > 0 && (
+              <p className="mt-3 text-xs text-gold">
+                {missing} {missing === 1 ? "medalha escolhida ainda não tem" : "medalhas escolhidas ainda não têm"} a % cadastrada e {missing === 1 ? "não entra" : "não entram"} na soma.
+              </p>
+            )}
           </div>
         </aside>
 
@@ -224,7 +237,7 @@ export function MedalsBrowser() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted" aria-live="polite">
-              {results.length} de {MEDALS.length} medalhas
+              {results.length} de {medals.length} medalhas
               {full && <span className="ml-2 text-gold">· limite de {MAX_EQUIPPED} atingido</span>}
             </p>
             {hasMedalFilters(filters) && results.length > 0 && clearButton}

@@ -38,7 +38,7 @@ export function MedalRing({ equipped, onRemove }: { equipped: Medal[]; onRemove:
             className="absolute rounded-full transition-transform hover:scale-110"
             style={{ left, top, width: SLOT, height: SLOT }}
           >
-            <MedalBadge id={medal.id} className="size-full" />
+            <MedalBadge spriteId={medal.spriteId} className="size-full" />
           </button>
         ) : (
           <span

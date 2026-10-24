@@ -1,9 +1,9 @@
 import { spriteUrl } from "@/config/images";
 
 /**
- * Medalhas (emblemas) do jogo: uma por Pokémon da Gen 1 (#1 a #151).
- * Cada medalha dá +1 de um buff e, na maioria, −1 de um debuff.
- * Para corrigir uma medalha, edite só a linha dela em RAW.
+ * Medalhas (emblemas) do jogo. Cada medalha dá um buff e, na maioria, um debuff, cada um com a sua %.
+ * Os valores reais ficam no banco (editáveis em Administração). Este arquivo é só o modelo e a lista
+ * de reserva usada quando o banco não está configurado (buff/debuff de cada medalha, sem as %).
  */
 
 export type MedalCategory = "combate" | "leech" | "defesa" | "loot" | "shiny" | "velocidade";
@@ -17,44 +17,66 @@ export const MEDAL_CATEGORIES: { key: MedalCategory; label: string }[] = [
   { key: "velocidade", label: "Velocidade / Outros" },
 ];
 
-/** Todos os buffs/debuffs que existem nas medalhas. `label` é o nome mostrado no site. */
+/**
+ * Buffs/debuffs conhecidos. `label` é o nome mostrado no site; `unit` é "%" ou "" (número puro,
+ * como as velocidades no jogo). Buffs que não estão aqui também funcionam (o texto digitado vira o nome).
+ */
 export const MEDAL_STATS = {
-  damage: { label: "Damage Boost", category: "combate" },
-  critChance: { label: "Critical Chance", category: "combate" },
-  critDamage: { label: "Critical Damage", category: "combate" },
-  precision: { label: "Precision Percent", category: "combate" },
-  lifeLeech: { label: "Life Leech", category: "leech" },
-  defense: { label: "Defense Boost", category: "defesa" },
-  hp: { label: "HP Boost", category: "defesa" },
-  critResist: { label: "Critical Resistance", category: "defesa" },
-  evasion: { label: "Evasion Percent", category: "defesa" },
-  loot: { label: "Loot Boost", category: "loot" },
-  catchRate: { label: "Catch Rate", category: "loot" },
-  shinyFishing: { label: "Shiny Fishing Rate", category: "shiny" },
-  shinyHeadbutt: { label: "Shiny Headbutt Rate", category: "shiny" },
-  shinyCatch: { label: "Shiny Catch Rate", category: "shiny" },
-  shinyCharm: { label: "Shiny Charm Rate", category: "shiny" },
-  pokemonSpeed: { label: "Pokemon Speed", category: "velocidade" },
-  characterSpeed: { label: "Character Speed", category: "velocidade" },
-  rideSpeed: { label: "Ride Speed", category: "velocidade" },
-  surfSpeed: { label: "Surf Speed", category: "velocidade" },
-  flySpeed: { label: "Fly Speed", category: "velocidade" },
-  fishingSkill: { label: "Fishing Skill", category: "velocidade" },
-  extraFishing: { label: "Extra Fishing", category: "velocidade" },
-  headbuttSkill: { label: "Headbutt Skill", category: "velocidade" },
-} as const satisfies Record<string, { label: string; category: MedalCategory }>;
+  damage: { label: "Damage Boost", category: "combate", unit: "%" },
+  critChance: { label: "Critical Chance", category: "combate", unit: "%" },
+  critDamage: { label: "Critical Damage", category: "combate", unit: "%" },
+  precision: { label: "Precision Percent", category: "combate", unit: "%" },
+  lifeLeech: { label: "Life Leech", category: "leech", unit: "%" },
+  defense: { label: "Defense Boost", category: "defesa", unit: "%" },
+  hp: { label: "HP Boost", category: "defesa", unit: "%" },
+  critResist: { label: "Critical Resistance", category: "defesa", unit: "%" },
+  evasion: { label: "Evasion Percent", category: "defesa", unit: "%" },
+  loot: { label: "Loot Boost", category: "loot", unit: "%" },
+  catchRate: { label: "Catch Rate", category: "loot", unit: "%" },
+  shinyFishing: { label: "Shiny Fishing Rate", category: "shiny", unit: "%" },
+  shinyHeadbutt: { label: "Shiny Headbutt Rate", category: "shiny", unit: "%" },
+  shinyCatch: { label: "Shiny Catch Rate", category: "shiny", unit: "%" },
+  shinyCharm: { label: "Shiny Charm Rate", category: "shiny", unit: "%" },
+  pokemonSpeed: { label: "Pokemon Speed", category: "velocidade", unit: "" },
+  characterSpeed: { label: "Character Speed", category: "velocidade", unit: "" },
+  rideSpeed: { label: "Ride Speed", category: "velocidade", unit: "" },
+  surfSpeed: { label: "Surf Speed", category: "velocidade", unit: "" },
+  flySpeed: { label: "Fly Speed", category: "velocidade", unit: "" },
+  fishingSkill: { label: "Fishing Skill", category: "velocidade", unit: "" },
+  extraFishing: { label: "Extra Fishing", category: "velocidade", unit: "" },
+  headbuttSkill: { label: "Headbutt Skill", category: "velocidade", unit: "" },
+} as const satisfies Record<string, { label: string; category: MedalCategory; unit: "%" | "" }>;
 
-export type MedalStatKey = keyof typeof MEDAL_STATS;
+export type KnownStatKey = keyof typeof MEDAL_STATS;
+/** Chave de um buff: uma das conhecidas ou um nome livre digitado no admin. */
+export type MedalStatKey = string;
+
+export const KNOWN_STAT_KEYS = Object.keys(MEDAL_STATS) as KnownStatKey[];
+const isKnown = (key: string): key is KnownStatKey => Object.hasOwn(MEDAL_STATS, key);
 
 export type Medal = {
-  /** Número na Pokédex nacional (também é o número da medalha). */
+  /** Número da medalha. */
   id: number;
   name: string;
-  /** Buff (+1). */
+  /** Número do Pokémon na PokeAPI usado para a imagem (normalmente igual ao id). */
+  spriteId: number;
+  /** Buff e sua % (ou número). `null` = valor ainda não cadastrado. */
   plus: MedalStatKey;
-  /** Debuff (−1). `null` = medalha sem debuff. */
+  plusValue: number | null;
+  /** Debuff e seu valor. `minus: null` = medalha sem debuff. */
   minus: MedalStatKey | null;
+  minusValue: number | null;
 };
+
+export const statLabel = (key: MedalStatKey) => (isKnown(key) ? MEDAL_STATS[key].label : key);
+export const statCategory = (key: MedalStatKey): MedalCategory => (isKnown(key) ? MEDAL_STATS[key].category : "velocidade");
+export const statUnit = (key: MedalStatKey): "%" | "" => (isKnown(key) ? MEDAL_STATS[key].unit : "%");
+
+/** 0.2 -> "0.2", 1 -> "1", 1.25 -> "1.25" (como o jogo mostra). */
+export const formatNumber = (value: number) => String(Math.round(value * 100) / 100);
+
+/** Ex.: formatAmount("defense", 0.2, "+") -> "+0.2%"; speeds ficam sem "%". */
+export const formatAmount = (key: MedalStatKey, value: number, sign: "+" | "−") => `${sign}${formatNumber(value)}${statUnit(key)}`;
 
 /** Formato: id | nome | buff | debuff ("-" = sem debuff) */
 const RAW = `
@@ -213,8 +235,8 @@ const RAW = `
 
 function parse(): Medal[] {
   const toKey = (raw: string, line: string): MedalStatKey => {
-    if (!(raw in MEDAL_STATS)) throw new Error(`Medalha inválida (buff desconhecido "${raw}"): ${line}`);
-    return raw as MedalStatKey;
+    if (!isKnown(raw)) throw new Error(`Medalha inválida (buff desconhecido "${raw}"): ${line}`);
+    return raw;
   };
   return RAW.trim()
     .split("\n")
@@ -223,16 +245,17 @@ function parse(): Medal[] {
       return {
         id: Number(id),
         name,
+        spriteId: Number(id),
         plus: toKey(plus, line),
+        plusValue: null,
         minus: minus === "-" ? null : toKey(minus, line),
+        minusValue: null,
       };
     });
 }
 
-export const MEDALS: Medal[] = parse();
-export const MEDAL_BY_ID = new Map(MEDALS.map((m) => [m.id, m]));
+/** Lista de reserva (sem as %). A lista de verdade vem do banco. */
+export const STATIC_MEDALS: Medal[] = parse();
 export const MAX_EQUIPPED = 10;
 
-export const medalSpriteUrl = (id: number) => spriteUrl(`${id}.png`);
-export const statLabel = (key: MedalStatKey) => MEDAL_STATS[key].label;
-export const statCategory = (key: MedalStatKey) => MEDAL_STATS[key].category;
+export const medalSpriteUrl = (spriteId: number) => spriteUrl(`${spriteId}.png`);
