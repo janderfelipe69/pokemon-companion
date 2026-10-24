@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import type { DexOption, Indexed } from "@/lib/damageTest/search";
 import { analyze, highestHazard, MODES } from "@/lib/damageTest/solver";
 import { MAX_SLOTS, toMons, type Action, type DamageState, type Slot } from "@/lib/damageTest/state";
+import { AttackRune } from "./AttackRune";
 import { PokemonCombobox } from "./PokemonCombobox";
 import { RotationResults, type RotationResult } from "./RotationResults";
 import { btnGhost, btnIcon, btnPrimary, inputClass } from "./ui";
@@ -93,6 +94,8 @@ export function RotationTab({ state, dispatch, index, byId }: Props) {
         </div>
         <p className="mt-3 text-sm text-muted">Guarde várias variações de time e troque entre elas. Com mais de um time, o app compara todos no final.</p>
       </Card>
+
+      <AttackRune teamName={team.name} rune={team.rune} dispatch={dispatch} />
 
       <Card>
         <h2 className="mb-3 flex items-baseline gap-2 text-lg font-semibold">

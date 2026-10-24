@@ -8,11 +8,9 @@ import { damageReducer, initialState, loadSaved, persist } from "@/lib/damageTes
 import { HazardsTab } from "./HazardsTab";
 import { LogsTab } from "./LogsTab";
 import { RotationTab } from "./RotationTab";
-import { RunesTab } from "./RunesTab";
 
 const TABS = [
   { id: "rotation", label: "Rotação" },
-  { id: "runes", label: "Runas" },
   { id: "logs", label: "Logs" },
   { id: "hazards", label: "Hazards" },
 ] as const;
@@ -93,9 +91,6 @@ export function DamageTest({ options }: { options: DexOption[] }) {
       {/* Os painéis ficam montados (só escondidos) para não perder o resultado ao trocar de aba. */}
       <div role="tabpanel" id="panel-rotation" aria-labelledby="tab-rotation" hidden={tab !== "rotation"}>
         <RotationTab state={state} dispatch={dispatch} index={index} byId={byId} />
-      </div>
-      <div role="tabpanel" id="panel-runes" aria-labelledby="tab-runes" hidden={tab !== "runes"}>
-        <RunesTab teamName={state.teams[state.cur]?.name ?? ""} rune={state.teams[state.cur]?.rune ?? 0} dispatch={dispatch} />
       </div>
       <div role="tabpanel" id="panel-logs" aria-labelledby="tab-logs" hidden={tab !== "logs"}>
         <LogsTab logs={state.logs} dispatch={dispatch} />
