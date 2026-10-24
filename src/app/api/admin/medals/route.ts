@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isIntegerStat } from "@/data/medals";
 import { MEDAL_SELECT } from "@/lib/supabase/medals";
 
 export const runtime = "nodejs";
@@ -77,11 +78,15 @@ function parseMedal(raw: unknown, errors: string[]): ParsedMedal | null {
   const plusValue = parseValue(m.plusValue);
   if (plusValue === undefined) return problem("valor do buff inválido (use números, com até 2 casas decimais).");
 
+  if (plusValue !== null && isIntegerStat(plus) && !Number.isInteger(plusValue)) return problem("velocidade do buff é número inteiro (ex.: 5).");
+
   const hasMinus = m.minus !== null && m.minus !== undefined && m.minus !== "";
   const minus = hasMinus ? parseStat(m.minus) : null;
   if (hasMinus && !minus) return problem("debuff inválido.");
   const minusValue = hasMinus ? parseValue(m.minusValue) : null;
   if (minusValue === undefined) return problem("valor do debuff inválido (use números, com até 2 casas decimais).");
+
+  if (minus && minusValue !== null && isIntegerStat(minus) && !Number.isInteger(minusValue)) return problem("velocidade do debuff é número inteiro (ex.: 5).");
 
   return { id, name, sprite_id: spriteRaw, plus_stat: plus, plus_value: plusValue, minus_stat: minus ?? null, minus_value: minusValue };
 }

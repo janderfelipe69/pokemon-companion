@@ -72,6 +72,10 @@ export const statLabel = (key: MedalStatKey) => (isKnown(key) ? MEDAL_STATS[key]
 export const statCategory = (key: MedalStatKey): MedalCategory => (isKnown(key) ? MEDAL_STATS[key].category : "velocidade");
 export const statUnit = (key: MedalStatKey): "%" | "" => (isKnown(key) ? MEDAL_STATS[key].unit : "%");
 
+/** Velocidades entram no jogo como número inteiro (ex.: +5), nunca com casas decimais nem %. */
+const INTEGER_STATS = new Set<string>(["pokemonSpeed", "characterSpeed", "flySpeed", "surfSpeed", "rideSpeed"]);
+export const isIntegerStat = (key: MedalStatKey) => INTEGER_STATS.has(key);
+
 /** 0.2 -> "0.2", 1 -> "1", 1.25 -> "1.25" (como o jogo mostra). */
 export const formatNumber = (value: number) => String(Math.round(value * 100) / 100);
 

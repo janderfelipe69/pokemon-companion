@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { MedalBadge } from "@/components/medals/MedalBadge";
-import { formatNumber, KNOWN_STAT_KEYS, MEDAL_CATEGORIES, MEDAL_STATS, statUnit } from "@/data/medals";
+import { formatNumber, isIntegerStat, KNOWN_STAT_KEYS, MEDAL_CATEGORIES, MEDAL_STATS, statUnit } from "@/data/medals";
 import { getGlobalDex } from "@/lib/globalDex";
 
 type Row = { id: number; name: string; spriteId: string; plus: string; plusValue: string; minus: string; minusValue: string };
@@ -22,6 +22,8 @@ const CUSTOM = "__custom__";
 const inputClass =
   "w-full rounded-lg border border-line bg-raised px-2.5 py-2 text-sm text-fg placeholder:text-muted/60 disabled:opacity-40 aria-[invalid=true]:border-red-400";
 const VALUE_RE = /^\d{1,6}([.,]\d{1,2})?$/;
+const INT_RE = /^\d{1,6}$/;
+const valueHint = (stat: string, decimal: string) => (isIntegerStat(stat) ? "Ex.: 5" : decimal);
 
 /** Nome do Pokémon pelo número da Pokédex nacional (só a forma normal), no mesmo formato das medalhas existentes. */
 const MEDAL_NAME_OVERRIDES: Record<string, string> = { "nidoran-female": "Nidoran F", "nidoran-male": "Nidoran M" };
@@ -57,7 +59,9 @@ function validate(r: Row): string | null {
   if (!r.name.trim()) return "Informe o nome.";
   if (r.plus.trim().length < 2) return "Escolha o buff.";
   if (r.plusValue.trim() && !VALUE_RE.test(r.plusValue.trim())) return "% do buff inválida (use números, até 2 casas decimais).";
+  if (r.plusValue.trim() && isIntegerStat(r.plus.trim()) && !INT_RE.test(r.plusValue.trim())) return "Velocidade do buff é número inteiro (ex.: 5), sem vírgula nem ponto.";
   if (r.minus.trim() && r.minus.trim().length < 2) return "Debuff inválido.";
+  if (r.minus.trim() && r.minusValue.trim() && isIntegerStat(r.minus.trim()) && !INT_RE.test(r.minusValue.trim())) return "Velocidade do debuff é número inteiro (ex.: 5), sem vírgula nem ponto.";
   if (r.minus.trim() && r.minusValue.trim() && !VALUE_RE.test(r.minusValue.trim())) return "% do debuff inválida (use números, até 2 casas decimais).";
   if (r.spriteId.trim() && !/^\d{1,5}$/.test(r.spriteId.trim())) return "Número da imagem inválido.";
   return null;
@@ -240,7 +244,7 @@ export function MedalsManager() {
           <h2 id="medals-admin-title" className="text-xl font-semibold">Medalhas</h2>
           <p className="mt-1 max-w-3xl text-sm text-muted">
             Cada medalha já vem com o buff e o debuff. Preencha só a <strong className="font-medium text-fg">%</strong> de cada um, como aparece no jogo (ex.: 0.2 e 0.3).
-            Nas velocidades o jogo mostra número puro, sem %. Para uma medalha nova, use “Adicionar medalha”.
+            Velocidades (Pokémon, personagem, voo, surf e cavalgar) são número inteiro, sem % (ex.: 5). Para uma medalha nova, use “Adicionar medalha”.
           </p>
         </div>
         <button
@@ -352,7 +356,7 @@ export function MedalsManager() {
                     <span className="mb-1 block text-xs text-muted lg:sr-only">% do buff</span>
                     <span className="relative block">
                       <input
-                        inputMode="decimal"
+                        inputMode={isIntegerStat(r.plus) ? "numeric" : "decimal"}
                         aria-label={`#${r.id}: valor do buff`}
                         value={r.plusValue}
                         onChange={(e) => patch(r.id, { plusValue: e.target.value })}
@@ -371,7 +375,7 @@ export function MedalsManager() {
                     <span className="mb-1 block text-xs text-muted lg:sr-only">% do debuff</span>
                     <span className="relative block">
                       <input
-                        inputMode="decimal"
+                        inputMode={isIntegerStat(r.minus) ? "numeric" : "decimal"}
                         aria-label={`#${r.id}: valor do debuff`}
                         value={r.minusValue}
                         onChange={(e) => patch(r.id, { minusValue: e.target.value })}
@@ -514,7 +518,7 @@ function AddForm({
         </div>
         <label className="block">
           <span className="mb-1 block text-xs text-muted">% / valor do buff</span>
-          <input inputMode="decimal" value={row.plusValue} onChange={(e) => setRow({ ...row, plusValue: e.target.value })} placeholder="Ex.: 0.2" className={inputClass} />
+          <input inputMode="decimal" value={row.plusValue} onChange={(e) => setRow({ ...row, plusValue: e.target.value })} placeholder={valueHint(row.plus, "Ex.: 0.2")} className={inputClass} />
         </label>
         <div>
           <span className="mb-1 block text-xs text-muted">Debuff (−)</span>
@@ -522,7 +526,7 @@ function AddForm({
         </div>
         <label className="block">
           <span className="mb-1 block text-xs text-muted">% / valor do debuff</span>
-          <input inputMode="decimal" value={row.minusValue} onChange={(e) => setRow({ ...row, minusValue: e.target.value })} disabled={!row.minus} placeholder="Ex.: 0.3" className={inputClass} />
+          <input inputMode="decimal" value={row.minusValue} onChange={(e) => setRow({ ...row, minusValue: e.target.value })} disabled={!row.minus} placeholder={valueHint(row.minus, "Ex.: 0.3")} className={inputClass} />
         </label>
       </div>
       {error && (
