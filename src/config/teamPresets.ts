@@ -19,12 +19,23 @@ export type PresetTier = {
   min?: number;
 };
 
+/** Pokémon específico que entra no tipo de time mesmo fora dos tiers dele (identificado pelo ID da Pokédex). */
+export type PresetExtra = { id: string; priority: number; stars?: number };
+
+/**
+ * Espécies "coringa": podem usar qualquer tipo ofensivo (ex.: Smeargle). Não precisam ter tipo ofensivo
+ * cadastrado; o montador escolhe o tipo que o time precisa. Nome da espécie em minúsculas, sem variante.
+ */
+export const WILDCARD_SPECIES = ["smeargle"];
+
 export type TeamPreset = {
-  id: "economico" | "razoavel" | "excepcional" | "fora-de-base";
+  id: "economico" | "razoavel" | "super-rare" | "excepcional" | "fora-de-base";
   label: string;
   tagline: string;
   description: string;
   tiers: PresetTier[];
+  /** Pokémon que entram neste tipo de time mesmo fora dos tiers acima (ex.: Shiny Smeargle no time de SR). */
+  extras?: PresetExtra[];
   /**
    * Tiers de reforço: só entram para completar os 6 quando o tipo de time não tem Pokémon efetivos
    * suficientes. Aparecem marcados como "reforço" e podem ser desligados na tela.
@@ -53,6 +64,15 @@ export const TEAM_PRESETS: TeamPreset[] = [
       { tier: "T1", priority: 2 },
       { tier: "Super Rare", priority: 1, min: 1, max: 2 },
     ],
+  },
+  {
+    id: "super-rare",
+    label: "Só Super Rare",
+    tagline: "Nem barato, nem caro",
+    description: "Time só de Super Rare: um pouco mais trabalhoso de montar. O Shiny Smeargle entra como coringa, em qualquer tipo.",
+    tiers: [{ tier: "Super Rare", priority: 2 }],
+    extras: [{ id: "shiny-smeargle", priority: 2 }],
+    fallback: [{ tier: "T1", priority: 1 }],
   },
   {
     id: "excepcional",

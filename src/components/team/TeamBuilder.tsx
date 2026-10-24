@@ -5,10 +5,11 @@ import { AlertTriangle, ChevronDown, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { HUNT_TIERS, TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
 import { normalize } from "@/lib/pokemonFilters";
-import { buildTeams, TEAM_SIZE } from "@/lib/teamBuilder";
+import { buildTeams, listCandidates, monoOptions, TEAM_SIZE } from "@/lib/teamBuilder";
 import type { PokedexEntry } from "@/types/pokedex";
-import type { Tier } from "@/types/pokemon";
+import type { PokemonType, Tier } from "@/types/pokemon";
 import { TargetPicker } from "./TargetPicker";
+import { TypeRestriction } from "./TypeRestriction";
 import { MemberTile, TeamCard } from "./TeamCard";
 import { WeaknessPanel } from "./WeaknessPanel";
 
@@ -21,6 +22,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
   const [tierFilter, setTierFilter] = useState<Tier | "">("");
   const [presetId, setPresetId] = useState<TeamPreset["id"]>("economico");
   const [includeFallback, setIncludeFallback] = useState(true);
+  const [onlyTypes, setOnlyTypes] = useState<PokemonType[]>([]);
   const [round, setRound] = useState(0);
   const [showAll, setShowAll] = useState(false);
 
@@ -40,15 +42,27 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
   const target = targets.find((e) => e.pokemon.id === targetId) ?? null;
   const preset = TEAM_PRESETS.find((p) => p.id === presetId) ?? TEAM_PRESETS[0];
 
+  // Tipos de ataque que batem o alvo e quantos Pokémon existem de cada um neste tipo de time.
+  const typeOptions = useMemo(() => {
+    if (!target) return [];
+    const { profile, candidates } = listCandidates(entries, target, preset, includeFallback);
+    return monoOptions(candidates, profile);
+  }, [entries, target, preset, includeFallback]);
+
   const build = useMemo(
-    () => (target ? buildTeams(entries, target, preset, { count: 3, round, includeFallback }) : null),
-    [entries, target, preset, round, includeFallback],
+    () => (target ? buildTeams(entries, target, preset, { count: 3, round, includeFallback, onlyTypes }) : null),
+    [entries, target, preset, round, includeFallback, onlyTypes],
   );
 
   const pickTarget = (id: string) => {
     setTargetId(id);
+    setOnlyTypes([]); // os tipos que batem mudam de alvo para alvo
     setRound(0);
     setShowAll(false);
+  };
+  const changeTypes = (types: PokemonType[]) => {
+    setOnlyTypes(types);
+    setRound(0);
   };
   const pickPreset = (id: TeamPreset["id"]) => {
     setPresetId(id);
@@ -81,7 +95,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
             <h2 className={STEP}>
               <span className={stepNumber}>3</span> Que tipo de time você quer?
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" role="radiogroup" aria-label="Tipo de time">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" role="radiogroup" aria-label="Tipo de time">
               {TEAM_PRESETS.map((p) => {
                 const active = p.id === presetId;
                 return (
@@ -99,6 +113,9 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
                   </button>
                 );
               })}
+            </div>
+            <div className="mt-5 border-t border-line pt-5">
+              <TypeRestriction options={typeOptions} selected={onlyTypes} onChange={changeTypes} />
             </div>
             {preset.fallback && (
               <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-muted">
@@ -133,6 +150,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
                   ? `Só existem ${best.members.length} Pokémon cadastrados que batem a efetividade neste tipo de time. Faltam ${best.missing} para completar os ${TEAM_SIZE}.`
                   : "Nenhum Pokémon cadastrado bate a efetividade contra este alvo neste tipo de time."}
                 {preset.fallback && !includeFallback && " Ative o reforço com tiers abaixo para completar."}
+                {onlyTypes.length > 0 && " Liberar mais tipos também ajuda a completar o time."}
               </p>
             )}
 

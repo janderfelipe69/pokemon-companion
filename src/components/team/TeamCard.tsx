@@ -24,6 +24,7 @@ export function MemberTile({ member }: { member: Candidate }) {
             <span className="ml-1 text-xs font-normal text-muted">{member.stars}★</span>
           </span>
         )}
+        {member.wildcard && <Badge tone="muted">Coringa: qualquer tipo</Badge>}
         {member.isFallback && <Badge tone="gold">Reforço</Badge>}
         {(p.priceKk != null || p.priceBrl != null) && (
           <p className="mt-auto text-xs tabular-nums text-muted">
