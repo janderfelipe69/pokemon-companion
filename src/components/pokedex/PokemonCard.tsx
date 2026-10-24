@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/Badge";
 import { TierLabel } from "@/components/tiers/TierLabel";
-import { formatBrl, formatKk } from "@/lib/money";
+import { formatBrlRange, formatKkRange } from "@/lib/money";
 import type { PokedexEntry } from "@/types/pokedex";
 import { PokemonImage } from "./PokemonImage";
 import { OFFENSIVE_EMPTY, OFFENSIVE_TITLE, ORIGINAL_EMPTY, ORIGINAL_TITLE, TypeGroup } from "./TypeGroup";
@@ -23,8 +23,8 @@ export function PokemonCard({ entry, onSelect }: { entry: PokedexEntry; onSelect
         <TypeGroup title={OFFENSIVE_TITLE} types={entry.offensiveTypes} emptyText={OFFENSIVE_EMPTY} />
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-3">
           <TierLabel pokemon={p} />
-          {p.priceKk != null && <span className="text-sm font-medium tabular-nums">{formatKk(p.priceKk)}</span>}
-          {p.priceBrl != null && <span className="text-sm font-medium tabular-nums">{formatBrl(p.priceBrl)}</span>}
+          {p.priceKk != null && <span className="text-sm font-medium tabular-nums">{formatKkRange(p.priceKk, p.priceKkMax)}</span>}
+          {p.priceBrl != null && <span className="text-sm font-medium tabular-nums">{formatBrlRange(p.priceBrl, p.priceBrlMax)}</span>}
         </div>
       </div>
     </button>

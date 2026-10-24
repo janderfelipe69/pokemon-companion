@@ -3,10 +3,10 @@ import type { TierKey } from "@/config/tiers";
 import { compareDecimal } from "./money";
 import { hasAnyPrice } from "./prices";
 import { normalize } from "./pokemonFilters";
-import { compareByName, tierKeyOf } from "./tierFilters";
+import { compareByName, TIER_KEYS, tierKeyOf } from "./tierFilters";
 
 export type PriceStatus = "all" | "with" | "without";
-export type PriceSort = "list" | "az" | "kk" | "brl";
+export type PriceSort = "list" | "az" | "tier" | "kk" | "brl";
 export type SortDirection = "asc" | "desc";
 
 export type PriceFilters = {
@@ -32,6 +32,10 @@ export function filterAndSortPrices(list: Pokemon[], f: PriceFilters): Pokemon[]
 
   if (f.sort === "az") return [...items].sort(compareByName);
   if (f.sort === "list") return items;
+  if (f.sort === "tier") {
+    const rank = (p: Pokemon) => TIER_KEYS.indexOf(tierKeyOf(p));
+    return [...items].sort((a, b) => rank(a) - rank(b) || compareByName(a, b));
+  }
 
   const key = f.sort === "kk" ? "priceKk" : "priceBrl";
   const sign = f.direction === "asc" ? 1 : -1;

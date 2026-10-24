@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { TierLabel } from "@/components/tiers/TierLabel";
-import { formatBrl, formatKk } from "@/lib/money";
+import { formatBrlRange, formatKkRange } from "@/lib/money";
 import type { PokedexEntry } from "@/types/pokedex";
 import { PokemonImage } from "./PokemonImage";
 import { OFFENSIVE_EMPTY, OFFENSIVE_TITLE, ORIGINAL_EMPTY, ORIGINAL_TITLE, TypeGroup } from "./TypeGroup";
@@ -44,10 +44,10 @@ export function PokemonDetail({ entry }: { entry: PokedexEntry }) {
         </Section>
         <div className="grid grid-cols-2 gap-4">
           <Section title="Preço em KK">
-            <p className="text-sm font-medium tabular-nums">{formatKk(p.priceKk)}</p>
+            <p className="text-sm font-medium tabular-nums">{formatKkRange(p.priceKk, p.priceKkMax)}</p>
           </Section>
           <Section title="Preço em R$">
-            <p className="text-sm font-medium tabular-nums">{formatBrl(p.priceBrl)}</p>
+            <p className="text-sm font-medium tabular-nums">{formatBrlRange(p.priceBrl, p.priceBrlMax)}</p>
           </Section>
         </div>
         {(p.evolution || p.evolutionItem) && (

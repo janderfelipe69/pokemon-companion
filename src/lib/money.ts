@@ -63,3 +63,46 @@ export function formatBrl(value: DecimalString | null | undefined): string {
   const [integer, fraction = ""] = value.split(".");
   return `R$ ${group(integer)},${fraction.padEnd(2, "0")}`;
 }
+
+/** Move a vírgula para a esquerda (texto canônico). Ex.: ("20000", 3) -> "20". */
+function shiftLeft(value: DecimalString, places: number): DecimalString {
+  const [integer, fraction = ""] = value.split(".");
+  const padded = integer.padStart(places + 1, "0");
+  const head = padded.slice(0, padded.length - places);
+  const tail = (padded.slice(padded.length - places) + fraction).replace(/0+$/, "");
+  return tail ? `${head}.${tail}` : head;
+}
+
+const comma = (value: DecimalString) => value.replace(".", ",");
+
+/**
+ * KK do jeito que a comunidade escreve: 800 -> "800kk", 20000 -> "20kkk", 2250 -> "2,25kkk".
+ * Se não couber de forma exata (muitas casas), mostra o valor completo.
+ */
+export function formatKkCompact(value: DecimalString | null | undefined): string {
+  if (value == null) return NOT_DEFINED;
+  if (value.split(".")[0].length < 4) return `${comma(value)}kk`;
+  const shifted = shiftLeft(value, 3);
+  const [integer, fraction = ""] = shifted.split(".");
+  return fraction.length <= 3 ? `${group(integer)}${fraction ? `,${fraction}` : ""}kkk` : formatKk(value);
+}
+
+/** R$ sem os centavos quando são zero: "R$ 40.000". */
+function brlShort(value: DecimalString): string {
+  const [integer, fraction = ""] = value.split(".");
+  return `${group(integer)}${fraction ? `,${fraction.padEnd(2, "0")}` : ""}`;
+}
+
+/** "20kkk – 40kkk" (faixa) ou "20kkk" (valor fixo). */
+export function formatKkRange(min: DecimalString | null | undefined, max?: DecimalString | null): string {
+  if (min == null) return NOT_DEFINED;
+  if (max == null || max === min) return formatKkCompact(min);
+  return `${formatKkCompact(min)} – ${formatKkCompact(max)}`;
+}
+
+/** "R$ 40.000 – 80.000" (faixa) ou "R$ 40.000" (valor fixo). */
+export function formatBrlRange(min: DecimalString | null | undefined, max?: DecimalString | null): string {
+  if (min == null) return NOT_DEFINED;
+  if (max == null || max === min) return `R$ ${brlShort(min)}`;
+  return `R$ ${brlShort(min)} – ${brlShort(max)}`;
+}

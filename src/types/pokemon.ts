@@ -38,6 +38,12 @@ export type DecimalString = string;
 /** Preços independentes (nenhum é convertido do outro). `null` = não definido, nunca zero. */
 export type PokemonPrices = { kk: DecimalString | null; brl: DecimalString | null };
 
+/** Faixa de preço de um tier. `max` vazio = valor fixo (só o mínimo). */
+export type PriceRange = { min: DecimalString | null; max: DecimalString | null };
+
+/** Faixas padrão de um tier, em KK e em R$ (independentes). */
+export type TierPriceRanges = { kk: PriceRange; brl: PriceRange };
+
 /** Preços cadastrados, indexados pelo ID do Pokémon. Pokémon ausentes não têm preço. */
 export type PriceMap = Record<string, Partial<PokemonPrices>>;
 
@@ -66,6 +72,14 @@ export type Pokemon = {
   priceKk?: DecimalString | null;
   /** Preço em reais. `null`/ausente = não definido; "0" é um preço cadastrado. */
   priceBrl?: DecimalString | null;
+  /** Limite superior da faixa de KK. Só existe quando o valor vem da faixa do tier. */
+  priceKkMax?: DecimalString | null;
+  /** Limite superior da faixa de R$. Só existe quando o valor vem da faixa do tier. */
+  priceBrlMax?: DecimalString | null;
+  /** `true` = o valor de KK vem do tier (não foi cadastrado para este Pokémon). */
+  priceKkFromTier?: boolean;
+  /** `true` = o valor de R$ vem do tier (não foi cadastrado para este Pokémon). */
+  priceBrlFromTier?: boolean;
   notes?: string;
   /** Número na Pokédex nacional, quando cadastrado pelo administrador. */
   pokedexNumber?: number | null;

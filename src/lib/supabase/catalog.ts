@@ -7,14 +7,15 @@ import {
   TIERS,
   type DecimalString,
   type Pokemon,
-  type PokemonPrices,
   type PokemonType,
   type Tier,
+  type TierPriceRanges,
 } from "@/types/pokemon";
 import { createPublicClient } from "./client";
 
 export type CatalogSource = "supabase" | "static";
-export type Catalog = { pokemon: Pokemon[]; source: CatalogSource };
+export type TierPriceMap = Partial<Record<Tier, TierPriceRanges>>;
+export type Catalog = { pokemon: Pokemon[]; source: CatalogSource; tierPrices: TierPriceMap };
 
 export type PokemonRow = {
   id: string;
@@ -40,8 +41,14 @@ export type PokemonRow = {
 type TierPriceRow = {
   tier_code: string;
   price_kk: string | null;
+  price_kk_max?: string | null;
   price_brl: string | null;
+  price_brl_max?: string | null;
 };
+
+const TIER_SELECT = "tier_code, price_kk::text, price_kk_max::text, price_brl::text, price_brl_max::text";
+/** Banco ainda sem a migração 0004 (sem colunas de máximo): continua funcionando só com o mínimo. */
+const TIER_SELECT_LEGACY = "tier_code, price_kk::text, price_brl::text";
 
 const SELECT = [
   "id", "name", "variant", "tier", "listed_type", "notes",
@@ -97,16 +104,22 @@ export function mapRowToPokemon(row: PokemonRow): Pokemon {
   };
 }
 
-function mapTierPrices(rows: TierPriceRow[]): Partial<Record<Tier, PokemonPrices>> {
-  const result: Partial<Record<Tier, PokemonPrices>> = {};
+function toRange(min: string | null | undefined, max: string | null | undefined, currency: "kk" | "brl") {
+  const low = toPrice(min ?? null, currency);
+  // Máximo sem mínimo não faz sentido: ignora.
+  return { min: low, max: low == null ? null : toPrice(max ?? null, currency) };
+}
+
+function mapTierPrices(rows: TierPriceRow[]): TierPriceMap {
+  const result: TierPriceMap = {};
 
   for (const row of rows) {
     const tier = TIERS.find((item) => item === row.tier_code);
     if (!tier) continue;
 
     result[tier] = {
-      kk: toPrice(row.price_kk, "kk"),
-      brl: toPrice(row.price_brl, "brl"),
+      kk: toRange(row.price_kk, row.price_kk_max, "kk"),
+      brl: toRange(row.price_brl, row.price_brl_max, "brl"),
     };
   }
 
@@ -116,6 +129,7 @@ function mapTierPrices(rows: TierPriceRow[]): Partial<Record<Tier, PokemonPrices
 const staticCatalog = (): Catalog => ({
   pokemon: pokemonWithPrices,
   source: "static",
+  tierPrices: {},
 });
 
 export async function getCatalog(): Promise<Catalog> {
@@ -148,14 +162,15 @@ export async function getCatalog(): Promise<Catalog> {
 
     const pokemon = rows.map(mapRowToPokemon);
 
-    const { data: tierRows, error: tierError } = await client
-      .from("tier_prices")
-      .select("tier_code, price_kk::text, price_brl::text");
+    let { data: tierRows, error: tierError } = await client.from("tier_prices").select(TIER_SELECT);
+    if (tierError) {
+      ({ data: tierRows, error: tierError } = await client.from("tier_prices").select(TIER_SELECT_LEGACY));
+    }
 
     if (tierError) {
       // A tabela pode ainda não ter sido criada. O catálogo continua funcionando.
       console.warn("[catalog] Não foi possível carregar os preços por tier.");
-      return { pokemon, source: "supabase" };
+      return { pokemon, source: "supabase", tierPrices: {} };
     }
 
     const tierPrices = mapTierPrices((tierRows ?? []) as TierPriceRow[]);
@@ -163,6 +178,7 @@ export async function getCatalog(): Promise<Catalog> {
     return {
       pokemon: applyTierPrices(pokemon, tierPrices),
       source: "supabase",
+      tierPrices,
     };
   } catch (error) {
     console.warn("[catalog] Falha ao ler o Supabase; usando os arquivos do projeto.", error);

@@ -1,5 +1,5 @@
 
-import type { Pokemon, PokemonPrices, PriceMap, Tier } from "@/types/pokemon";
+import type { Pokemon, PokemonPrices, PriceMap, Tier, TierPriceRanges } from "@/types/pokemon";
 import { parsePrice } from "./money";
 
 /** Junta preços individuais aos Pokémon, sem alterar nome, tier ou tipos. */
@@ -11,19 +11,29 @@ export function applyPrices(list: Pokemon[], prices: PriceMap): Pokemon[] {
   }));
 }
 
-/** Aplica o preço padrão do tier somente quando não existe preço individual. */
+/**
+ * Aplica a faixa do tier somente onde não existe preço individual (por moeda).
+ * O valor vem do tier => `price…FromTier` e, se houver faixa, `price…Max`.
+ */
 export function applyTierPrices(
   list: Pokemon[],
-  tierPrices: Partial<Record<Tier, PokemonPrices>>,
+  tierPrices: Partial<Record<Tier, TierPriceRanges>>,
 ): Pokemon[] {
   return list.map((p) => {
     const defaults = p.tier ? tierPrices[p.tier] : undefined;
+    const next: Pokemon = { ...p };
 
-    return {
-      ...p,
-      priceKk: p.priceKk ?? defaults?.kk ?? null,
-      priceBrl: p.priceBrl ?? defaults?.brl ?? null,
-    };
+    if (p.priceKk == null && defaults?.kk.min != null) {
+      next.priceKk = defaults.kk.min;
+      next.priceKkMax = defaults.kk.max;
+      next.priceKkFromTier = true;
+    }
+    if (p.priceBrl == null && defaults?.brl.min != null) {
+      next.priceBrl = defaults.brl.min;
+      next.priceBrlMax = defaults.brl.max;
+      next.priceBrlFromTier = true;
+    }
+    return next;
   });
 }
 

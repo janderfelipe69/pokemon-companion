@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/Badge";
 import { PokemonImage } from "@/components/pokedex/PokemonImage";
 import { TypeBadge } from "@/components/pokedex/TypeBadge";
 import { TierLabel } from "@/components/tiers/TierLabel";
-import { formatBrl, formatKk } from "@/lib/money";
+import { formatBrlRange, formatKkRange } from "@/lib/money";
 import { TEAM_SIZE, type Candidate, type TeamResult } from "@/lib/teamBuilder";
 import { EffectBadge } from "./EffectBadge";
 
@@ -28,7 +28,7 @@ export function MemberTile({ member }: { member: Candidate }) {
         {member.isFallback && <Badge tone="gold">Reforço</Badge>}
         {(p.priceKk != null || p.priceBrl != null) && (
           <p className="mt-auto text-xs tabular-nums text-muted">
-            {p.priceKk != null && formatKk(p.priceKk)} {p.priceBrl != null && formatBrl(p.priceBrl)}
+            {p.priceKk != null && formatKkRange(p.priceKk, p.priceKkMax)} {p.priceBrl != null && formatBrlRange(p.priceBrl, p.priceBrlMax)}
           </p>
         )}
       </div>
