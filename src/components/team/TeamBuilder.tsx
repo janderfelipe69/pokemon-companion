@@ -1,0 +1,172 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AlertTriangle, ChevronDown, RefreshCw } from "lucide-react";
+import { Card } from "@/components/ui/Card";
+import { HUNT_TIERS, TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
+import { normalize } from "@/lib/pokemonFilters";
+import { buildTeams, TEAM_SIZE } from "@/lib/teamBuilder";
+import type { PokedexEntry } from "@/types/pokedex";
+import type { Tier } from "@/types/pokemon";
+import { TargetPicker } from "./TargetPicker";
+import { MemberTile, TeamCard } from "./TeamCard";
+import { WeaknessPanel } from "./WeaknessPanel";
+
+const STEP = "mb-4 flex items-center gap-3 text-lg font-semibold";
+const stepNumber = "grid size-7 place-items-center rounded-full bg-gold/15 text-sm text-gold";
+
+export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [tierFilter, setTierFilter] = useState<Tier | "">("");
+  const [presetId, setPresetId] = useState<TeamPreset["id"]>("economico");
+  const [includeFallback, setIncludeFallback] = useState(true);
+  const [round, setRound] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+
+  // Só Mythic, Legendary e Ultra Rare entram em rotação como alvo. Os tiers abaixo ficam de fora.
+  const targets = useMemo(() => {
+    const order = (t: Tier | null | undefined) => HUNT_TIERS.indexOf(t as Tier);
+    return entries
+      .filter((e) => e.pokemon.tier && HUNT_TIERS.includes(e.pokemon.tier) && e.originalTypes && e.originalTypes.length > 0)
+      .sort((a, b) => order(a.pokemon.tier) - order(b.pokemon.tier) || (a.pokemon.sourceName ?? a.pokemon.name).localeCompare(b.pokemon.sourceName ?? b.pokemon.name, "pt-BR"));
+  }, [entries]);
+
+  const visibleTargets = useMemo(() => {
+    const q = normalize(query);
+    return targets.filter((e) => (!tierFilter || e.pokemon.tier === tierFilter) && (!q || normalize(e.pokemon.sourceName ?? e.pokemon.name).includes(q)));
+  }, [targets, query, tierFilter]);
+
+  const target = targets.find((e) => e.pokemon.id === targetId) ?? null;
+  const preset = TEAM_PRESETS.find((p) => p.id === presetId) ?? TEAM_PRESETS[0];
+
+  const build = useMemo(
+    () => (target ? buildTeams(entries, target, preset, { count: 3, round, includeFallback }) : null),
+    [entries, target, preset, round, includeFallback],
+  );
+
+  const pickTarget = (id: string) => {
+    setTargetId(id);
+    setRound(0);
+    setShowAll(false);
+  };
+  const pickPreset = (id: TeamPreset["id"]) => {
+    setPresetId(id);
+    setRound(0);
+    setShowAll(false);
+  };
+
+  const best = build?.teams[0];
+  const incomplete = !!build && (!best || best.missing > 0);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h2 className={STEP}>
+          <span className={stepNumber}>1</span> O que você quer caçar?
+        </h2>
+        <TargetPicker targets={visibleTargets} selectedId={targetId} query={query} tier={tierFilter} onQuery={setQuery} onTier={setTierFilter} onSelect={pickTarget} />
+      </Card>
+
+      {target && build && (
+        <>
+          <Card>
+            <h2 className={STEP}>
+              <span className={stepNumber}>2</span> Fraquezas do alvo
+            </h2>
+            <WeaknessPanel target={target} profile={build.profile} />
+          </Card>
+
+          <Card>
+            <h2 className={STEP}>
+              <span className={stepNumber}>3</span> Que tipo de time você quer?
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" role="radiogroup" aria-label="Tipo de time">
+              {TEAM_PRESETS.map((p) => {
+                const active = p.id === presetId;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => pickPreset(p.id)}
+                    className={`rounded-xl border p-4 text-left transition-colors ${active ? "border-gold bg-gold/5 ring-1 ring-gold" : "border-line bg-raised hover:border-gold/50"}`}
+                  >
+                    <p className="font-semibold">{p.label}</p>
+                    <p className="mt-0.5 text-sm text-gold">{p.tagline}</p>
+                    <p className="mt-2 text-sm text-muted">{p.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+            {preset.fallback && (
+              <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-muted">
+                <input type="checkbox" checked={includeFallback} onChange={(e) => { setIncludeFallback(e.target.checked); setRound(0); }} className="mt-1 accent-[var(--color-gold)]" />
+                <span>
+                  Completar com tiers abaixo ({preset.fallback.map((f) => f.tier).join(", ")}) quando não houver {TEAM_SIZE} Pokémon efetivos neste tipo de time. Eles aparecem marcados como reforço.
+                </span>
+              </label>
+            )}
+          </Card>
+
+          <Card>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-3 text-lg font-semibold">
+                <span className={stepNumber}>4</span> Times sugeridos
+              </h2>
+              {build.teams.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setRound((r) => r + 1)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-raised px-4 py-2 text-sm font-medium hover:border-gold/50 hover:text-gold"
+                >
+                  <RefreshCw className="size-4" aria-hidden /> Gerar outras opções
+                </button>
+              )}
+            </div>
+
+            {incomplete && (
+              <p className="mb-4 flex items-start gap-2 rounded-lg border border-gold/40 bg-gold/5 p-3 text-sm text-muted" role="status">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
+                {best
+                  ? `Só existem ${best.members.length} Pokémon cadastrados que batem a efetividade neste tipo de time. Faltam ${best.missing} para completar os ${TEAM_SIZE}.`
+                  : "Nenhum Pokémon cadastrado bate a efetividade contra este alvo neste tipo de time."}
+                {preset.fallback && !includeFallback && " Ative o reforço com tiers abaixo para completar."}
+              </p>
+            )}
+
+            {build.teams.length > 0 ? (
+              <div className="space-y-4">
+                {build.teams.map((team, i) => <TeamCard key={team.members.map((m) => m.entry.pokemon.id).join("|")} team={team} index={i} />)}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Não há Pokémon para montar um time com essas escolhas.</p>
+            )}
+
+            {build.candidates.length > 0 && (
+              <div className="mt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowAll((v) => !v)}
+                  aria-expanded={showAll}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-gold"
+                >
+                  <ChevronDown className={`size-4 transition-transform ${showAll ? "rotate-180" : ""}`} aria-hidden />
+                  Ver todos os {build.candidates.length} Pokémon que batem a efetividade
+                </button>
+                {showAll && (
+                  <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                    {build.candidates.map((c) => <MemberTile key={c.entry.pokemon.id} member={c} />)}
+                  </ul>
+                )}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
+      {!target && <p className="text-center text-sm text-muted">Escolha um Pokémon acima para ver as fraquezas e montar o time.</p>}
+    </div>
+  );
+}
