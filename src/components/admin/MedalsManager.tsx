@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { MedalBadge } from "@/components/medals/MedalBadge";
 import { formatNumber, KNOWN_STAT_KEYS, MEDAL_CATEGORIES, MEDAL_STATS, statUnit } from "@/data/medals";
+import { getGlobalDex } from "@/lib/globalDex";
 
 type Row = { id: number; name: string; spriteId: string; plus: string; plusValue: string; minus: string; minusValue: string };
 type ApiRow = {
@@ -21,6 +22,19 @@ const CUSTOM = "__custom__";
 const inputClass =
   "w-full rounded-lg border border-line bg-raised px-2.5 py-2 text-sm text-fg placeholder:text-muted/60 disabled:opacity-40 aria-[invalid=true]:border-red-400";
 const VALUE_RE = /^\d{1,6}([.,]\d{1,2})?$/;
+
+/** Nome do Pokémon pelo número da Pokédex nacional (só a forma normal), no mesmo formato das medalhas existentes. */
+const MEDAL_NAME_OVERRIDES: Record<string, string> = { "nidoran-female": "Nidoran F", "nidoran-male": "Nidoran M" };
+let dexNames: Map<number, string> | null = null;
+function dexNameOf(dex: number): string | null {
+  if (!dexNames) {
+    dexNames = new Map();
+    for (const e of getGlobalDex()) {
+      if (e.variant === null && !dexNames.has(e.dex)) dexNames.set(e.dex, MEDAL_NAME_OVERRIDES[e.id] ?? e.name);
+    }
+  }
+  return dexNames.get(dex) ?? null;
+}
 
 const fromValue = (v: string | number | null) => (v == null || v === "" ? "" : formatNumber(Number(v)));
 
@@ -439,9 +453,24 @@ function AddForm({
   onAdd: (row: Row) => void;
   onCancel: () => void;
 }) {
-  const [row, setRow] = useState<Row>({ id: suggestedId, name: "", spriteId: "", plus: "", plusValue: "", minus: "", minusValue: "" });
+  const [row, setRow] = useState<Row>({ id: suggestedId, name: dexNameOf(suggestedId) ?? "", spriteId: "", plus: "", plusValue: "", minus: "", minusValue: "" });
   const [idText, setIdText] = useState(String(suggestedId));
+  // Enquanto você não digitar o nome, ele acompanha o número da Pokédex.
+  const [nameTouched, setNameTouched] = useState(false);
   const [error, setError] = useState("");
+
+  const idNumber = Number(idText);
+  const spriteNumber = row.spriteId.trim() ? Number(row.spriteId) : idNumber;
+  const previewOk = Number.isInteger(spriteNumber) && spriteNumber > 0;
+  const dexName = Number.isInteger(idNumber) && idNumber > 0 ? dexNameOf(idNumber) : null;
+
+  function changeId(text: string) {
+    setIdText(text);
+    setError("");
+    if (nameTouched) return;
+    const n = Number(text);
+    setRow((r) => ({ ...r, name: Number.isInteger(n) && n > 0 ? dexNameOf(n) ?? "" : "" }));
+  }
 
   function submit() {
     const id = Number(idText);
@@ -458,12 +487,22 @@ function AddForm({
       <h3 className="font-semibold">Nova medalha</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block">
-          <span className="mb-1 block text-xs text-muted">Número da medalha</span>
-          <input inputMode="numeric" value={idText} onChange={(e) => setIdText(e.target.value)} className={inputClass} />
+          <span className="mb-1 block text-xs text-muted">Número da medalha (= nº na Pokédex)</span>
+          <span className="flex items-center gap-2">
+            {previewOk ? <MedalBadge spriteId={spriteNumber} className="size-9 shrink-0" /> : <span className="size-9 shrink-0" />}
+            <input inputMode="numeric" value={idText} onChange={(e) => changeId(e.target.value)} className={inputClass} />
+          </span>
+          <span className="mt-1 block text-[11px] text-muted">
+            {dexName ? <>Pokédex: <strong className="font-medium text-fg">{dexName}</strong></> : idText.trim() ? "Número fora da Pokédex — digite o nome." : ""}
+          </span>
         </label>
         <label className="block lg:col-span-2">
           <span className="mb-1 block text-xs text-muted">Nome</span>
-          <input value={row.name} onChange={(e) => setRow({ ...row, name: e.target.value })} placeholder="Ex.: Chikorita" className={inputClass} />
+          <input value={row.name} onChange={(e) => {
+              setNameTouched(e.target.value !== "");
+              setRow({ ...row, name: e.target.value });
+            }}
+            placeholder="Preenche sozinho pelo número" className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs text-muted">Nº do Pokémon para a imagem (opcional)</span>
