@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { MedalBadge } from "@/components/medals/MedalBadge";
-import { formatNumber, isIntegerStat, KNOWN_STAT_KEYS, MEDAL_CATEGORIES, MEDAL_STATS, statUnit } from "@/data/medals";
+import { formatAmount, formatNumber, isIntegerStat, KNOWN_STAT_KEYS, MEDAL_CATEGORIES, MEDAL_STATS, statLabel, statUnit, type MedalStatKey } from "@/data/medals";
 import { getGlobalDex } from "@/lib/globalDex";
 
 type Row = { id: number; name: string; spriteId: string; plus: string; plusValue: string; minus: string; minusValue: string };
@@ -120,6 +120,194 @@ function StatPicker({
   );
 }
 
+type Filter = "all" | "missing" | "changed";
+
+/** "Defense Boost +0.2%" — ou null quando o valor ainda não foi preenchido. */
+function amountText(stat: string, raw: string, sign: "+" | "−"): string | null {
+  const n = Number(raw.trim().replace(",", "."));
+  if (!raw.trim() || !Number.isFinite(n)) return null;
+  return `${statLabel(stat as MedalStatKey)} ${formatAmount(stat as MedalStatKey, n, sign)}`;
+}
+
+function Overlay({ title, onClose, children }: { title: React.ReactNode; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-line bg-panel p-5 shadow-2xl shadow-black/60 sm:rounded-2xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">{title}</div>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-white/5 hover:text-fg">
+            <X className="size-5" aria-hidden />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function AdminTile({ row, changed, isNew, onOpen }: { row: Row; changed: boolean; isNew: boolean; onOpen: () => void }) {
+  const plusText = amountText(row.plus, row.plusValue, "+");
+  const minusText = row.minus ? amountText(row.minus, row.minusValue, "−") : null;
+  const incomplete = !plusText || (row.minus !== "" && !minusText);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title="Clique para editar"
+      className={`relative flex flex-col items-center gap-2 rounded-xl border bg-black/25 px-2 pb-3 pt-3 text-center transition-colors hover:bg-white/5 ${
+        changed ? "border-gold ring-1 ring-gold/60" : incomplete ? "border-amber-500/50" : "border-line"
+      }`}
+    >
+      <span className="absolute left-2 top-1.5 text-[10px] tabular-nums text-muted">#{row.id}</span>
+      {(changed || isNew) && (
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-gold/20 px-1.5 text-[9px] font-semibold text-gold">{isNew ? "nova" : "editada"}</span>
+      )}
+      <MedalBadge spriteId={Number(row.spriteId) || row.id} className="mt-2 size-14" />
+      <span className="text-sm font-semibold leading-tight">{row.name || "(sem nome)"}</span>
+      <div className="flex w-full flex-col items-center gap-1">
+        {plusText ? (
+          <span className="rounded-full bg-emerald-600/90 px-2 py-0.5 text-[11px] font-semibold leading-tight text-white">{plusText}</span>
+        ) : (
+          <span className="rounded-full border border-dashed border-amber-400/70 px-2 py-0.5 text-[11px] font-semibold leading-tight text-amber-200">
+            {statLabel(row.plus as MedalStatKey)} · falta %
+          </span>
+        )}
+        {row.minus ? (
+          minusText ? (
+            <span className="rounded-full bg-red-600/90 px-2 py-0.5 text-[11px] font-semibold leading-tight text-white">{minusText}</span>
+          ) : (
+            <span className="rounded-full border border-dashed border-amber-400/70 px-2 py-0.5 text-[11px] font-semibold leading-tight text-amber-200">
+              {statLabel(row.minus as MedalStatKey)} · falta %
+            </span>
+          )
+        ) : (
+          <span className="rounded-full bg-slate-600/80 px-2 py-0.5 text-[11px] font-semibold leading-tight text-slate-100">sem debuff</span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function ValueInput({ stat, value, onChange, label, disabled, invalid }: { stat: string; value: string; onChange: (v: string) => void; label: string; disabled?: boolean; invalid?: boolean }) {
+  return (
+    <span className="relative block">
+      <input
+        inputMode={isIntegerStat(stat) ? "numeric" : "decimal"}
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        placeholder={valueHint(stat, "Ex.: 0.2")}
+        aria-invalid={invalid}
+        className={`${inputClass} ${stat && statUnit(stat) ? "pr-7" : ""}`}
+      />
+      {stat && statUnit(stat) && <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">%</span>}
+    </span>
+  );
+}
+
+function MedalEditor({
+  row, changed, isNew, error, customKeys, position, onPatch, onPrev, onNext, onRevert, onRemove, onClose,
+}: {
+  row: Row;
+  changed: boolean;
+  isNew: boolean;
+  error: string | null;
+  customKeys: string[];
+  position: { index: number; total: number } | null;
+  onPatch: (change: Partial<Row>) => void;
+  onPrev: (() => void) | null;
+  onNext: (() => void) | null;
+  onRevert: () => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Overlay
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-3">
+          <MedalBadge spriteId={Number(row.spriteId) || row.id} className="size-14 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs tabular-nums text-muted">Medalha #{row.id}{isNew ? " · nova, falta salvar" : ""}</p>
+            <h3 className="truncate text-lg font-semibold">{row.name || "(sem nome)"}</h3>
+          </div>
+        </div>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">Nome</span>
+          <input aria-label={`#${row.id}: nome`} value={row.name} onChange={(e) => onPatch({ name: e.target.value })} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">Nº do Pokémon da imagem (opcional)</span>
+          <input inputMode="numeric" value={row.spriteId} onChange={(e) => onPatch({ spriteId: e.target.value })} placeholder={`igual ao número (${row.id})`} className={inputClass} />
+        </label>
+
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 sm:col-span-2">
+          <p className="mb-2 text-sm font-semibold text-emerald-300">Buff (+)</p>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem]">
+            <StatPicker label={`#${row.id}: buff`} value={row.plus} onChange={(plus) => onPatch({ plus })} customKeys={customKeys} />
+            <ValueInput stat={row.plus} value={row.plusValue} onChange={(plusValue) => onPatch({ plusValue })} label={`#${row.id}: valor do buff`} invalid={error != null && row.plusValue.trim() !== "" && !VALUE_RE.test(row.plusValue.trim())} />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 sm:col-span-2">
+          <p className="mb-2 text-sm font-semibold text-red-300">Debuff (−)</p>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem]">
+            <StatPicker label={`#${row.id}: debuff`} value={row.minus} onChange={(minus) => onPatch({ minus })} allowNone customKeys={customKeys} />
+            <ValueInput stat={row.minus} value={row.minusValue} onChange={(minusValue) => onPatch({ minusValue })} label={`#${row.id}: valor do debuff`} disabled={!row.minus} invalid={error != null && row.minusValue.trim() !== "" && !VALUE_RE.test(row.minusValue.trim())} />
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <p role="alert" className="mt-3 flex items-start gap-1.5 text-sm text-red-300">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
+        </p>
+      )}
+
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => onPrev?.()} disabled={!onPrev} aria-label="Medalha anterior" className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-2 text-sm text-muted hover:text-fg disabled:opacity-30">
+          <ChevronLeft className="size-4" aria-hidden /> Anterior
+        </button>
+        <button type="button" onClick={() => onNext?.()} disabled={!onNext} aria-label="Próxima medalha" className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-2 text-sm text-muted hover:text-fg disabled:opacity-30">
+          Próxima <ChevronRight className="size-4" aria-hidden />
+        </button>
+        {position && <span className="text-xs tabular-nums text-muted">{position.index} / {position.total}</span>}
+        <span className="flex-1" />
+        {changed && !isNew && (
+          <button type="button" onClick={onRevert} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm text-muted hover:text-fg">
+            <RotateCcw className="size-4" aria-hidden /> Desfazer
+          </button>
+        )}
+        <button type="button" onClick={onRemove} aria-label={`Remover a medalha #${row.id} ${row.name}`} title="Remover medalha" className="flex size-9 items-center justify-center rounded-lg text-muted hover:bg-red-500/15 hover:text-red-300">
+          <Trash2 className="size-4" aria-hidden />
+        </button>
+        <button type="button" onClick={onClose} className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-ink hover:opacity-90">
+          Pronto
+        </button>
+      </div>
+      <p className="mt-3 text-xs text-muted">As mudanças ficam marcadas em dourado na grade. Clique em “Salvar alterações” (barra no rodapé) para gravar de verdade.</p>
+    </Overlay>
+  );
+}
+
 export function MedalsManager() {
   const [saved, setSaved] = useState<Row[]>([]);
   const [draft, setDraft] = useState<Row[]>([]);
@@ -128,8 +316,9 @@ export function MedalsManager() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [query, setQuery] = useState("");
-  const [onlyMissing, setOnlyMissing] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +348,7 @@ export function MedalsManager() {
     [saved],
   );
   const dirty = useMemo(() => draft.filter((r) => isDirty(r, savedById.get(r.id))), [draft, savedById]);
+  const dirtyIds = useMemo(() => new Set(dirty.map((r) => r.id)), [dirty]);
   const errors = useMemo(() => new Map(dirty.map((r) => [r.id, validate(r)])), [dirty]);
   const hasErrors = [...errors.values()].some(Boolean);
   const missingCount = useMemo(() => saved.filter(missingValue).length, [saved]);
@@ -167,14 +357,15 @@ export function MedalsManager() {
     const q = query.trim().toLowerCase();
     return draft.filter((r) => {
       if (q && !`${r.id} ${r.name}`.toLowerCase().includes(q)) return false;
-      // O filtro "faltando %" olha o que já está salvo, para a linha não sumir enquanto você digita.
-      if (onlyMissing) {
+      // "Faltando %" olha o que já está salvo, para o card não sumir enquanto você digita.
+      if (filter === "missing") {
         const base = savedById.get(r.id);
         if (base && !missingValue(base)) return false;
       }
+      if (filter === "changed" && !dirtyIds.has(r.id)) return false;
       return true;
     });
-  }, [draft, query, onlyMissing, savedById]);
+  }, [draft, query, filter, savedById, dirtyIds]);
 
   const patch = (id: number, change: Partial<Row>) => {
     setNotice(null);
@@ -215,6 +406,7 @@ export function MedalsManager() {
   async function remove(row: Row) {
     if (!savedById.has(row.id)) {
       setDraft((d) => d.filter((r) => r.id !== row.id));
+      setEditingId(null);
       return;
     }
     if (!window.confirm(`Remover a medalha #${row.id} ${row.name}? Isso apaga a medalha do site.`)) return;
@@ -229,6 +421,7 @@ export function MedalsManager() {
       if (!response.ok) throw new Error(data.error || "Não foi possível remover.");
       setSaved((s) => s.filter((r) => r.id !== row.id));
       setDraft((d) => d.filter((r) => r.id !== row.id));
+      setEditingId(null);
       setNotice({ kind: "ok", text: `Medalha #${row.id} removida.` });
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Erro ao remover a medalha." });
@@ -236,6 +429,24 @@ export function MedalsManager() {
   }
 
   const nextId = draft.reduce((max, r) => Math.max(max, r.id), 0) + 1;
+  const editing = editingId == null ? null : draft.find((r) => r.id === editingId) ?? null;
+  const editIdx = editing ? visible.findIndex((r) => r.id === editing.id) : -1;
+  const closeEditor = useCallback(() => setEditingId(null), []);
+  const closeAdd = useCallback(() => setAdding(false), []);
+
+  const filterButton = (key: Filter, label: string, count?: number) => (
+    <button
+      key={key}
+      type="button"
+      onClick={() => setFilter(key)}
+      aria-pressed={filter === key}
+      className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+        filter === key ? "border-gold bg-gold/15 text-gold" : "border-line bg-raised text-muted hover:text-fg"
+      }`}
+    >
+      {label} {count != null && <span className="opacity-60">{count}</span>}
+    </button>
+  );
 
   return (
     <section className="rounded-2xl border border-line bg-panel p-5 sm:p-6" aria-labelledby="medals-admin-title">
@@ -243,13 +454,13 @@ export function MedalsManager() {
         <div>
           <h2 id="medals-admin-title" className="text-xl font-semibold">Medalhas</h2>
           <p className="mt-1 max-w-3xl text-sm text-muted">
-            Cada medalha já vem com o buff e o debuff. Preencha só a <strong className="font-medium text-fg">%</strong> de cada um, como aparece no jogo (ex.: 0.2 e 0.3).
+            Clique numa medalha para editar. Preencha só a <strong className="font-medium text-fg">%</strong> de cada buff/debuff, como aparece no jogo (ex.: 0.2 e 0.3).
             Velocidades (Pokémon, personagem, voo, surf e cavalgar) são número inteiro, sem % (ex.: 5). Para uma medalha nova, use “Adicionar medalha”.
           </p>
         </div>
         <button
           type="button"
-          onClick={() => setAdding((a) => !a)}
+          onClick={() => setAdding(true)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gold/60 bg-gold/10 px-3 py-2 text-sm font-medium text-gold hover:bg-gold/20"
         >
           <Plus className="size-4" aria-hidden /> Adicionar medalha
@@ -257,18 +468,41 @@ export function MedalsManager() {
       </div>
 
       {adding && (
-        <AddForm
-          suggestedId={nextId}
-          existingIds={new Set(draft.map((r) => r.id))}
+        <Overlay title={<h3 className="text-lg font-semibold">Nova medalha</h3>} onClose={closeAdd}>
+          <AddForm
+            suggestedId={nextId}
+            existingIds={new Set(draft.map((r) => r.id))}
+            customKeys={customKeys}
+            onAdd={(row) => {
+              setDraft((d) => [row, ...d]);
+              setAdding(false);
+              setQuery("");
+              setFilter("all");
+              setNotice({ kind: "ok", text: `Medalha #${row.id} adicionada. Clique em “Salvar alterações” para gravar.` });
+            }}
+            onCancel={closeAdd}
+          />
+        </Overlay>
+      )}
+
+      {editing && (
+        <MedalEditor
+          key={editing.id}
+          row={editing}
+          changed={isDirty(editing, savedById.get(editing.id))}
+          isNew={!savedById.has(editing.id)}
+          error={isDirty(editing, savedById.get(editing.id)) ? errors.get(editing.id) ?? null : null}
           customKeys={customKeys}
-          onAdd={(row) => {
-            setDraft((d) => [row, ...d]);
-            setAdding(false);
-            setQuery("");
-            setOnlyMissing(false);
-            setNotice({ kind: "ok", text: `Medalha #${row.id} adicionada à lista. Clique em “Salvar alterações” para gravar.` });
+          position={editIdx >= 0 ? { index: editIdx + 1, total: visible.length } : null}
+          onPatch={(change) => patch(editing.id, change)}
+          onPrev={editIdx > 0 ? () => setEditingId(visible[editIdx - 1].id) : null}
+          onNext={editIdx >= 0 && editIdx < visible.length - 1 ? () => setEditingId(visible[editIdx + 1].id) : null}
+          onRevert={() => {
+            const base = savedById.get(editing.id);
+            if (base) patch(editing.id, base);
           }}
-          onCancel={() => setAdding(false)}
+          onRemove={() => void remove(editing)}
+          onClose={closeEditor}
         />
       )}
 
@@ -298,114 +532,35 @@ export function MedalsManager() {
                 />
               </span>
             </label>
-            <button
-              type="button"
-              onClick={() => setOnlyMissing((v) => !v)}
-              aria-pressed={onlyMissing}
-              className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
-                onlyMissing ? "border-gold bg-gold/15 text-gold" : "border-line bg-raised text-muted hover:text-fg"
-              }`}
-            >
-              Só as que faltam % <span className="opacity-60">{missingCount}</span>
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {filterButton("all", "Todas", saved.length)}
+              {filterButton("missing", "Faltam %", missingCount)}
+              {filterButton("changed", "Editadas", dirty.length)}
+            </div>
           </div>
           <p className="mt-3 text-sm text-muted" aria-live="polite">
             {saved.length - missingCount} de {saved.length} com a % preenchida · mostrando {visible.length}
+            <span className="ml-3 text-xs">
+              <span className="mr-1 inline-block size-2 rounded-full border border-amber-500/70" aria-hidden /> falta %
+              <span className="ml-3 mr-1 inline-block size-2 rounded-full bg-gold" aria-hidden /> editada
+            </span>
           </p>
 
-          <div
-            aria-hidden
-            className="mt-4 hidden gap-x-3 px-3 pb-2 text-xs font-medium text-muted lg:grid lg:grid-cols-[3.25rem_minmax(0,1.1fr)_minmax(0,1.4fr)_5.5rem_minmax(0,1.4fr)_5.5rem_2.25rem]"
-          >
-            <span>#</span>
-            <span>Nome</span>
-            <span>Buff (+)</span>
-            <span>% / valor</span>
-            <span>Debuff (−)</span>
-            <span>% / valor</span>
-            <span />
-          </div>
-
-          <ul className="space-y-2">
-            {visible.map((r) => {
-              const isNew = !savedById.has(r.id);
-              const changed = isDirty(r, savedById.get(r.id));
-              const error = changed ? errors.get(r.id) : null;
-              return (
-                <li
+          {visible.length > 0 ? (
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {visible.map((r) => (
+                <AdminTile
                   key={r.id}
-                  className={`grid gap-x-3 gap-y-3 rounded-xl border px-3 py-3 lg:grid-cols-[3.25rem_minmax(0,1.1fr)_minmax(0,1.4fr)_5.5rem_minmax(0,1.4fr)_5.5rem_2.25rem] lg:items-start ${
-                    changed ? "border-gold/60 bg-gold/5" : "border-line bg-ink/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 lg:flex-col lg:items-start lg:gap-1">
-                    <MedalBadge spriteId={Number(r.spriteId) || r.id} className="size-10" />
-                    <span className="text-xs tabular-nums text-muted">#{r.id}</span>
-                    {isNew && <span className="rounded-full bg-teal/15 px-1.5 text-[10px] font-medium text-teal lg:hidden">nova</span>}
-                  </div>
-                  <label className="block">
-                    <span className="mb-1 block text-xs text-muted lg:sr-only">Nome</span>
-                    <input aria-label={`#${r.id}: nome`} value={r.name} onChange={(e) => patch(r.id, { name: e.target.value })} className={inputClass} />
-                    {isNew && <span className="mt-1 hidden text-[10px] font-medium text-teal lg:block">nova — falta salvar</span>}
-                  </label>
-                  <div>
-                    <span className="mb-1 block text-xs text-muted lg:sr-only">Buff</span>
-                    <StatPicker label={`#${r.id}: buff`} value={r.plus} onChange={(plus) => patch(r.id, { plus })} customKeys={customKeys} />
-                  </div>
-                  <label className="block">
-                    <span className="mb-1 block text-xs text-muted lg:sr-only">% do buff</span>
-                    <span className="relative block">
-                      <input
-                        inputMode={isIntegerStat(r.plus) ? "numeric" : "decimal"}
-                        aria-label={`#${r.id}: valor do buff`}
-                        value={r.plusValue}
-                        onChange={(e) => patch(r.id, { plusValue: e.target.value })}
-                        placeholder="—"
-                        aria-invalid={error != null && r.plusValue.trim() !== "" && !VALUE_RE.test(r.plusValue.trim())}
-                        className={`${inputClass} ${statUnit(r.plus) ? "pr-7" : ""}`}
-                      />
-                      {r.plus && statUnit(r.plus) && <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">%</span>}
-                    </span>
-                  </label>
-                  <div>
-                    <span className="mb-1 block text-xs text-muted lg:sr-only">Debuff</span>
-                    <StatPicker label={`#${r.id}: debuff`} value={r.minus} onChange={(minus) => patch(r.id, { minus })} allowNone customKeys={customKeys} />
-                  </div>
-                  <label className="block">
-                    <span className="mb-1 block text-xs text-muted lg:sr-only">% do debuff</span>
-                    <span className="relative block">
-                      <input
-                        inputMode={isIntegerStat(r.minus) ? "numeric" : "decimal"}
-                        aria-label={`#${r.id}: valor do debuff`}
-                        value={r.minusValue}
-                        onChange={(e) => patch(r.id, { minusValue: e.target.value })}
-                        disabled={!r.minus}
-                        placeholder="—"
-                        aria-invalid={error != null && r.minusValue.trim() !== "" && !VALUE_RE.test(r.minusValue.trim())}
-                        className={`${inputClass} ${r.minus && statUnit(r.minus) ? "pr-7" : ""}`}
-                      />
-                      {r.minus && statUnit(r.minus) && <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">%</span>}
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => void remove(r)}
-                    aria-label={`Remover a medalha #${r.id} ${r.name}`}
-                    title="Remover medalha"
-                    className="flex size-9 items-center justify-center justify-self-end rounded-lg text-muted hover:bg-red-500/15 hover:text-red-300"
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                  </button>
-                  {error && (
-                    <p role="alert" className="flex items-start gap-1.5 text-sm text-red-300 lg:col-span-full">
-                      <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {visible.length === 0 && <p className="mt-4 text-sm text-muted">Nenhuma medalha encontrada.</p>}
+                  row={r}
+                  changed={dirtyIds.has(r.id)}
+                  isNew={!savedById.has(r.id)}
+                  onOpen={() => setEditingId(r.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted">Nenhuma medalha encontrada.</p>
+          )}
 
           <div className="sticky bottom-3 z-10 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-raised/95 p-3 shadow-lg shadow-black/40 backdrop-blur">
             <p role="status" className="min-w-0 flex-1 text-sm">
@@ -487,9 +642,8 @@ function AddForm({
   }
 
   return (
-    <div className="mt-5 rounded-xl border border-gold/40 bg-gold/5 p-4">
-      <h3 className="font-semibold">Nova medalha</h3>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div>
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-xs text-muted">Número da medalha (= nº na Pokédex)</span>
           <span className="flex items-center gap-2">
@@ -500,7 +654,7 @@ function AddForm({
             {dexName ? <>Pokédex: <strong className="font-medium text-fg">{dexName}</strong></> : idText.trim() ? "Número fora da Pokédex — digite o nome." : ""}
           </span>
         </label>
-        <label className="block lg:col-span-2">
+        <label className="block">
           <span className="mb-1 block text-xs text-muted">Nome</span>
           <input value={row.name} onChange={(e) => {
               setNameTouched(e.target.value !== "");

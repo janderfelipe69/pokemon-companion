@@ -1,9 +1,7 @@
-﻿
+
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { LogoutButton } from "@/components/admin/LogoutButton";
-import { MedalsManager } from "@/components/admin/MedalsManager";
-import { PokemonManager } from "@/components/admin/PokemonManager";
-import { TierPricesManager } from "@/components/admin/TierPricesManager";
+import { AdminPanel } from "@/components/admin/AdminPanel";
 import { isAdminAuthenticated } from "@/lib/auth/session";
 
 export const metadata = {
@@ -20,28 +18,17 @@ export default async function Page() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-8 px-4 py-12">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <p className="text-sm font-medium uppercase tracking-widest text-purple-400">
-          Pokémon Companion
-        </p>
-
-        <h1 className="mt-2 text-3xl font-bold">
-          Painel administrativo
-        </h1>
-
-        <p className="mt-3 text-gray-400">
-          Gerencie Pokémon, tipagens e preços diretamente pelo site.
-        </p>
-
-        <div className="mt-6">
-          <LogoutButton />
+    <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:py-12">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-6 py-5">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-widest text-purple-400">Pokémon Companion</p>
+          <h1 className="mt-1 text-2xl font-bold">Painel administrativo</h1>
+          <p className="mt-1 text-sm text-gray-400">Escolha a área que quer editar.</p>
         </div>
+        <LogoutButton />
       </div>
 
-      <TierPricesManager />
-      <MedalsManager />
-      <PokemonManager />
+      <AdminPanel />
     </main>
   );
 }
