@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard,
+  Home,
   BookOpen,
   Layers,
   Sparkles,
@@ -22,7 +22,7 @@ export type NavItem = {
 };
 
 export const mainNav: NavItem[] = [
-  { href: "/", label: "Dashboard", description: "Visão geral do projeto", icon: LayoutDashboard },
+  { href: "/", label: "Início", description: "Boas-vindas e atalhos", icon: Home },
   { href: "/pokedex", label: "Pokédex", description: "Consulte os Pokémon e seus dados", icon: BookOpen },
   { href: "/tiers", label: "Tiers e valores", description: "Classificações e valores de referência", icon: Layers },
   { href: "/drops", label: "Drops de talentos", description: "Origem e chances de talentos", icon: Sparkles },
