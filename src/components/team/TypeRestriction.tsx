@@ -1,6 +1,7 @@
 "use client";
 
 import { typeInfo } from "@/config/pokemonTypes";
+import { TypeIcon } from "@/components/pokedex/TypeIcon";
 import type { MonoOption } from "@/lib/teamBuilder";
 import type { PokemonType } from "@/types/pokemon";
 
@@ -62,10 +63,10 @@ export function TypeRestriction({ options, mode, selected, onMode, onChange }: P
                   aria-pressed={active}
                   disabled={o.count === 0}
                   onClick={() => click(o.type)}
-                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   style={active ? { color, borderColor: color, backgroundColor: `${color}26` } : { borderColor: `${color}55`, color: "var(--color-fg)" }}
                 >
-                  <span className="size-2 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+                  <TypeIcon type={o.type} className="size-6" />
                   {label}
                   <span className="text-xs tabular-nums text-muted">{o.count} · {o.full ? "2x" : "1.5x"}</span>
                 </button>

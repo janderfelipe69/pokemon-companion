@@ -5,6 +5,7 @@ import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { PokemonImage } from "@/components/pokedex/PokemonImage";
 import { TypeBadge } from "@/components/pokedex/TypeBadge";
+import { TypeIcon } from "@/components/pokedex/TypeIcon";
 import { typeInfo } from "@/config/pokemonTypes";
 import { catalogRecordOf, entryImageUrl } from "@/lib/globalDex";
 import type { GlobalDexEntry } from "@/types/globalDex";
@@ -206,10 +207,11 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
               return (
                 <label
                   key={type}
-                  className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors ${on ? "font-medium" : "text-muted hover:text-fg"}`}
+                  className={`inline-flex cursor-pointer items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold ${on ? "font-medium" : "text-muted hover:text-fg"}`}
                   style={on ? { color, borderColor: `${color}99`, backgroundColor: `${color}26` } : { borderColor: "var(--color-line)" }}
                 >
                   <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleType(type)} />
+                  <TypeIcon type={type} className="size-6" />
                   {label}
                 </label>
               );
