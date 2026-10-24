@@ -26,3 +26,36 @@ body {
   outline: 2px solid var(--color-gold);
   outline-offset: 2px;
 }
+
+/* ── Medalhas (visual inspirado na janela "Emblema Pokémon" do jogo) ───────── */
+.medal-panel {
+  background: linear-gradient(160deg, #121a2e 0%, #0d1322 100%);
+  border: 1px solid rgba(56, 130, 200, 0.45);
+  box-shadow: 0 0 0 1px rgba(8, 14, 28, 0.9), 0 0 28px rgba(40, 130, 220, 0.16);
+}
+
+.medal-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 3px solid #2a1511;
+  background: radial-gradient(circle at 35% 28%, #e8a283 0%, #b8644a 48%, #7a3526 100%);
+  box-shadow: 0 0 0 2px #0c1220, inset 0 2px 3px rgba(255, 255, 255, 0.25), 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+.medal-badge img {
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+.medal-ring {
+  border-radius: 9999px;
+  border: 7px solid #1d5a9a;
+  background: radial-gradient(circle, #1a2236 0%, #0f1526 70%);
+  box-shadow: 0 0 22px rgba(50, 150, 240, 0.45), inset 0 0 18px rgba(50, 150, 240, 0.25);
+}

@@ -8,7 +8,7 @@ const groups: { title: string; hint: string; accent: Accent; hrefs: string[] }[]
     title: "Consultar",
     hint: "Informações do jogo sempre à mão",
     accent: "gold",
-    hrefs: ["/pokedex", "/tiers", "/drops", "/rotas-farm"],
+    hrefs: ["/pokedex", "/medalhas", "/tiers", "/drops", "/rotas-farm"],
   },
   {
     title: "Ferramentas da guilda",
