@@ -36,5 +36,6 @@ Sem as variáveis de ambiente, o site continua funcionando normalmente com os ar
 - **Origem da importação**: `source_name`, `source_tier_raw`, `source_type_raw`, `source_line` e `review_notes` guardam o que estava na lista original. `is_incomplete` é calculada (tier ou tipo nulo) e some quando o registro é completado.
 - `tiers` (11 categorias) e `pokemon_types` (18 tipos): tabelas de referência, somente leitura pela API.
 - `pokemon_defensive_types` e `pokemon_offensive_types`: tipos defensivos e ofensivos independentes.
-- `talent_items` e `pokemon_talent_drops`: itens e quantidades de drops (vazias; `quantity` nula = desconhecida).
+- `talent_items` e `pokemon_talent_drops`: itens (agora com imagem, ver `0006_talents.sql`) e quantidades de drops (`quantity` nula = desconhecida).
+- `talents` e `talent_requirements` (`0006_talents.sql`): os talentos de cada categoria e os itens que cada um pede. As imagens ficam no bucket público `talent-items` do Storage.
 - **Segurança (RLS)**: qualquer visitante lê; só administrador autenticado insere, altera ou remove.

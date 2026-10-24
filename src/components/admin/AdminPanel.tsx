@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Layers, Medal, type LucideIcon } from "lucide-react";
+import { BookOpen, Layers, Medal, Package, Sparkles, type LucideIcon } from "lucide-react";
+import { ItemsManager } from "./ItemsManager";
 import { MedalsManager } from "./MedalsManager";
 import { PokemonManager } from "./PokemonManager";
+import { TalentsManager } from "./TalentsManager";
 import { TierPricesManager } from "./TierPricesManager";
 
-type SectionKey = "pokemon" | "tiers" | "medalhas";
+type SectionKey = "pokemon" | "tiers" | "medalhas" | "itens" | "talentos";
 
 const SECTIONS: { key: SectionKey; label: string; description: string; icon: LucideIcon }[] = [
   { key: "pokemon", label: "Pokémon", description: "Cadastro e catálogo do site", icon: BookOpen },
   { key: "tiers", label: "Tiers e valores", description: "Valor de cada tier", icon: Layers },
   { key: "medalhas", label: "Medalhas", description: "Buffs, debuffs e % de cada uma", icon: Medal },
+  { key: "itens", label: "Itens", description: "Imagens e nomes dos itens", icon: Package },
+  { key: "talentos", label: "Talentos", description: "Itens que cada talento pede", icon: Sparkles },
 ];
 
 const isSection = (v: string): v is SectionKey => SECTIONS.some((s) => s.key === v);
@@ -22,6 +26,8 @@ const isSection = (v: string): v is SectionKey => SECTIONS.some((s) => s.key ===
  */
 export function AdminPanel() {
   const [active, setActive] = useState<SectionKey>("pokemon");
+  // Sobe a cada mudança na aba Itens, para a aba Talentos atualizar a lista de itens sem recarregar a página.
+  const [itemsVersion, setItemsVersion] = useState(0);
 
   // Lembra a aba no endereço (#medalhas), então F5 e links diretos voltam para o mesmo lugar.
   useEffect(() => {
@@ -41,7 +47,7 @@ export function AdminPanel() {
 
   return (
     <div className="space-y-6">
-      <div role="tablist" aria-label="Áreas da administração" className="grid gap-3 sm:grid-cols-3">
+      <div role="tablist" aria-label="Áreas da administração" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {SECTIONS.map(({ key, label, description, icon: Icon }) => {
           const on = key === active;
           return (
@@ -74,6 +80,12 @@ export function AdminPanel() {
       </div>
       <div id="admin-panel-medalhas" role="tabpanel" aria-labelledby="admin-tab-medalhas" hidden={active !== "medalhas"}>
         <MedalsManager />
+      </div>
+      <div id="admin-panel-itens" role="tabpanel" aria-labelledby="admin-tab-itens" hidden={active !== "itens"}>
+        <ItemsManager onChanged={() => setItemsVersion((v) => v + 1)} />
+      </div>
+      <div id="admin-panel-talentos" role="tabpanel" aria-labelledby="admin-tab-talentos" hidden={active !== "talentos"}>
+        <TalentsManager itemsVersion={itemsVersion} />
       </div>
       <div id="admin-panel-pokemon" role="tabpanel" aria-labelledby="admin-tab-pokemon" hidden={active !== "pokemon"}>
         <PokemonManager />
