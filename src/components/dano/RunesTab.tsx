@@ -6,13 +6,16 @@ import { fmtNum } from "@/lib/damageTest/format";
 import { MAX_RUNE, type Action } from "@/lib/damageTest/state";
 import { inputClass } from "./ui";
 
-export function RunesTab({ rune, dispatch }: { rune: number; dispatch: Dispatch<Action> }) {
+export function RunesTab({ teamName, rune, dispatch }: { teamName: string; rune: number; dispatch: Dispatch<Action> }) {
   const set = (value: number) => dispatch({ type: "rune", value });
   return (
     <Card>
       <h2 className="text-lg font-semibold">Runas: % extra de dano</h2>
+      <p className="mt-1 inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-0.5 text-sm text-gold">
+        Time: <b>{teamName || "Sem nome"}</b>
+      </p>
       <p className="mt-1 text-sm text-muted">
-        Bônus de dano das runas, aplicado em <b className="text-fg">todos</b> os pokémons (de 0% a {MAX_RUNE}%). Digite o dano dos pokémons{" "}
+        Bônus de dano das runas, aplicado em <b className="text-fg">todos</b> os pokémons <b className="text-fg">deste time</b> (de 0% a {MAX_RUNE}%). Cada time tem a sua runa; para mudar de time, volte à aba Rotação. Digite o dano dos pokémons{" "}
         <b className="text-fg">sem</b> esse bônus.
       </p>
       <p className="mt-4 text-3xl font-bold tabular-nums">+{fmtNum(rune)}%</p>

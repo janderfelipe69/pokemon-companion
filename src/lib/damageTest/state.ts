@@ -17,16 +17,17 @@ export type Slot = {
   prev: number;
 };
 
-export type DamageTeam = { name: string; slots: Slot[] };
+/** Cada time tem a sua própria runa (% extra de dano), sem interferir nos outros. */
+export type DamageTeam = { name: string; slots: Slot[]; rune: number };
 
 export type DamageLog = { team: string; id: string | null; name: string; old: number | null; value: number; at: number };
 
-export type DamageState = { teams: DamageTeam[]; cur: number; logs: DamageLog[]; rune: number };
+export type DamageState = { teams: DamageTeam[]; cur: number; logs: DamageLog[] };
 
 export const blankSlot = (): Slot => ({ id: null, name: "", dmg: "", lure: false, prev: 0 });
 export const blankSlots = (): Slot[] => Array.from({ length: MAX_SLOTS }, blankSlot);
 
-export const initialState = (): DamageState => ({ teams: [{ name: "Time 1", slots: blankSlots() }], cur: 0, logs: [], rune: 0 });
+export const initialState = (): DamageState => ({ teams: [{ name: "Time 1", slots: blankSlots(), rune: 0 }], cur: 0, logs: [] });
 
 export type Action =
   | { type: "hydrate"; state: DamageState }
@@ -45,6 +46,7 @@ export type Action =
   | { type: "commit"; at: number }
   | { type: "clear-logs" };
 
+const clampRune = (v: number) => Math.min(MAX_RUNE, Math.max(0, Number(v) || 0));
 const clampIndex = (i: number, len: number) => Math.min(Math.max(0, i), Math.max(0, len - 1));
 
 /** Aplica uma alteração ao time atual. */
@@ -77,11 +79,11 @@ export function damageReducer(state: DamageState, action: Action): DamageState {
     case "rename-team":
       return withTeam(state, (t) => ({ ...t, name: action.name }));
     case "new-team":
-      return { ...state, teams: [...state.teams, { name: `Time ${state.teams.length + 1}`, slots: blankSlots() }], cur: state.teams.length };
+      return { ...state, teams: [...state.teams, { name: `Time ${state.teams.length + 1}`, slots: blankSlots(), rune: 0 }], cur: state.teams.length };
     case "duplicate-team": {
       const src = state.teams[state.cur];
       if (!src) return state;
-      const copy: DamageTeam = { name: `${src.name} (cópia)`, slots: src.slots.map((s) => ({ ...s })) };
+      const copy: DamageTeam = { name: `${src.name} (cópia)`, slots: src.slots.map((s) => ({ ...s })), rune: src.rune };
       return { ...state, teams: [...state.teams, copy], cur: state.teams.length };
     }
     case "delete-team": {
@@ -90,7 +92,7 @@ export function damageReducer(state: DamageState, action: Action): DamageState {
       return { ...state, teams, cur: clampIndex(state.cur - 1, teams.length) };
     }
     case "rune":
-      return { ...state, rune: Math.min(MAX_RUNE, Math.max(0, Number(action.value) || 0)) };
+      return withTeam(state, (t) => ({ ...t, rune: clampRune(action.value) }));
     case "commit":
       return commitLogs(state, action.at);
     case "clear-logs":
@@ -168,7 +170,9 @@ export function parseSaved(raw: string | null): DamageState | null {
         lure: s.lure === true,
         prev: num(s.prev),
       }));
-      return { name: str(t.name, `Time ${i + 1}`) || `Time ${i + 1}`, slots: slots.length > 0 ? slots : blankSlots() };
+      // Antes a runa era uma só para todos os times: quem salvou assim passa a ter esse valor em cada time.
+      const rune = clampRune(typeof t.rune === "number" ? t.rune : num(data.rune));
+      return { name: str(t.name, `Time ${i + 1}`) || `Time ${i + 1}`, slots: slots.length > 0 ? slots : blankSlots(), rune };
     });
     if (teams.length === 0) return null;
     const logs: DamageLog[] = (Array.isArray(data.logs) ? data.logs : []).filter(isObj).flatMap((l) =>
@@ -176,7 +180,7 @@ export function parseSaved(raw: string | null): DamageState | null {
         ? [{ team: str(l.team), id: typeof l.id === "string" ? l.id : null, name: l.name, old: typeof l.old === "number" ? l.old : null, value: l.value, at: l.at }]
         : [],
     );
-    return { teams, cur: clampIndex(num(data.cur), teams.length), logs: logs.slice(-MAX_LOGS), rune: Math.min(MAX_RUNE, Math.max(0, num(data.rune))) };
+    return { teams, cur: clampIndex(num(data.cur), teams.length), logs: logs.slice(-MAX_LOGS) };
   } catch {
     return null;
   }

@@ -95,7 +95,7 @@ export function DamageTest({ options }: { options: DexOption[] }) {
         <RotationTab state={state} dispatch={dispatch} index={index} byId={byId} />
       </div>
       <div role="tabpanel" id="panel-runes" aria-labelledby="tab-runes" hidden={tab !== "runes"}>
-        <RunesTab rune={state.rune} dispatch={dispatch} />
+        <RunesTab teamName={state.teams[state.cur]?.name ?? ""} rune={state.teams[state.cur]?.rune ?? 0} dispatch={dispatch} />
       </div>
       <div role="tabpanel" id="panel-logs" aria-labelledby="tab-logs" hidden={tab !== "logs"}>
         <LogsTab logs={state.logs} dispatch={dispatch} />

@@ -31,20 +31,20 @@ export function RotationTab({ state, dispatch, index, byId }: Props) {
     return () => clearTimeout(t);
   }, [confirmDelete]);
 
-  const signature = JSON.stringify([state.cur, state.rune, state.teams.map((t) => t.slots.map((s) => [s.id ?? s.name, s.dmg, s.lure]))]);
+  const signature = JSON.stringify([state.cur, state.teams.map((t) => [t.rune, t.slots.map((s) => [s.id ?? s.name, s.dmg, s.lure])])]);
   const shown = result && result.cur === state.cur ? result : null;
   const stale = shown !== null && shown.sig !== signature;
   const filled = team.slots.filter((s) => nameOf(s).trim()).length;
 
   const run = () => {
     dispatch({ type: "commit", at: Date.now() });
-    const analysis = analyze(toMons(team.slots, nameOf), state.rune);
+    const analysis = analyze(toMons(team.slots, nameOf), team.rune);
     const compare =
       state.teams.length > 1
         ? state.teams.map((t, i) => ({
             name: t.name,
             current: i === state.cur,
-            cells: MODES.map((m) => highestHazard(toMons(t.slots, nameOf), m, state.rune)),
+            cells: MODES.map((m) => highestHazard(toMons(t.slots, nameOf), m, t.rune)),
           }))
         : null;
     setResult({ analysis, compare, sig: signature, cur: state.cur });
