@@ -9,7 +9,7 @@ import { buildTeams, listCandidates, monoOptions, TEAM_SIZE } from "@/lib/teamBu
 import type { PokedexEntry } from "@/types/pokedex";
 import type { PokemonType, Tier } from "@/types/pokemon";
 import { TargetPicker } from "./TargetPicker";
-import { TypeRestriction } from "./TypeRestriction";
+import { TypeRestriction, type TypeMode } from "./TypeRestriction";
 import { MemberTile, TeamCard } from "./TeamCard";
 import { WeaknessPanel } from "./WeaknessPanel";
 
@@ -22,6 +22,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
   const [tierFilter, setTierFilter] = useState<Tier | "">("");
   const [presetId, setPresetId] = useState<TeamPreset["id"]>("economico");
   const [includeFallback, setIncludeFallback] = useState(true);
+  const [typeMode, setTypeMode] = useState<TypeMode>("mixed");
   const [onlyTypes, setOnlyTypes] = useState<PokemonType[]>([]);
   const [round, setRound] = useState(0);
   const [showAll, setShowAll] = useState(false);
@@ -56,13 +57,21 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
 
   const pickTarget = (id: string) => {
     setTargetId(id);
-    setOnlyTypes([]); // os tipos que batem mudam de alvo para alvo
+    setTypeMode("mixed"); // os tipos que batem mudam de alvo para alvo
+    setOnlyTypes([]);
     setRound(0);
     setShowAll(false);
   };
   const changeTypes = (types: PokemonType[]) => {
     setOnlyTypes(types);
     setRound(0);
+  };
+  const changeMode = (mode: TypeMode) => {
+    setTypeMode(mode);
+    setRound(0);
+    if (mode === "mixed") setOnlyTypes([]);
+    // Tipo único começa já com o tipo que tem mais Pokémon efetivos; o usuário troca com um clique.
+    else if (mode === "single") setOnlyTypes((cur) => (cur.length > 0 ? [cur[0]] : typeOptions.filter((o) => o.count > 0).slice(0, 1).map((o) => o.type)));
   };
   const pickPreset = (id: TeamPreset["id"]) => {
     setPresetId(id);
@@ -115,7 +124,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
               })}
             </div>
             <div className="mt-5 border-t border-line pt-5">
-              <TypeRestriction options={typeOptions} selected={onlyTypes} onChange={changeTypes} />
+              <TypeRestriction options={typeOptions} mode={typeMode} selected={onlyTypes} onMode={changeMode} onChange={changeTypes} />
             </div>
             {preset.fallback && (
               <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-muted">
@@ -150,7 +159,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
                   ? `Só existem ${best.members.length} Pokémon cadastrados que batem a efetividade neste tipo de time. Faltam ${best.missing} para completar os ${TEAM_SIZE}.`
                   : "Nenhum Pokémon cadastrado bate a efetividade contra este alvo neste tipo de time."}
                 {preset.fallback && !includeFallback && " Ative o reforço com tiers abaixo para completar."}
-                {onlyTypes.length > 0 && " Liberar mais tipos também ajuda a completar o time."}
+                {onlyTypes.length > 0 && " Liberar mais tipos (ou voltar para Misto) também ajuda a completar o time."}
               </p>
             )}
 
