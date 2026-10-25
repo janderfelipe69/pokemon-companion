@@ -20,7 +20,8 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
     <dialog
       ref={ref}
       aria-label={title}
-      onClose={onClose}
+      // O React repassa o evento "close" de uma janela aninhada para a janela de fora; só reage se foi esta que fechou.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === ref.current && onClose()}
       className="m-auto max-h-[92vh] w-[min(44rem,calc(100%-1.5rem))] overflow-y-auto rounded-xl border border-line bg-panel p-0 text-fg backdrop:bg-black/70"
     >
