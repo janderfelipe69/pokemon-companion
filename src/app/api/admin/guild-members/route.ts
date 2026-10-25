@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/session";
-import { isBoostType } from "@/config/guildBoost";
+import { parseWants } from "@/config/guildBoost";
 import { GuildDataError, isSetupMissing, listMembers, listWants, saveWants, SETUP_HINT } from "@/lib/guild/boostData";
 import { isValidNick, normalizeNick } from "@/lib/guild/boostMembers";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,7 +16,7 @@ export async function GET() {
   try {
     if (!(await isAdminAuthenticated())) return unauthorized();
     const [members, wants] = await Promise.all([listMembers(), listWants()]);
-    return NextResponse.json({ members: members.map((m) => ({ ...m, types: wants.get(m.id) ?? [] })) });
+    return NextResponse.json({ members: members.map((m) => ({ ...m, wants: wants.get(m.id) ?? [] })) });
   } catch (e) {
     return failData(e);
   }
@@ -54,11 +54,11 @@ export async function POST(request: Request) {
   }
 }
 
-/** Troca o nick e/ou os tipos de um membro: { id, name?, types? }. */
+/** Troca o nick e/ou o que um membro quer receber: { id, name?, wants? }. */
 export async function PATCH(request: Request) {
   try {
     if (!(await isAdminAuthenticated())) return unauthorized();
-    const body = (await request.json().catch(() => null)) as { id?: unknown; name?: unknown; types?: unknown } | null;
+    const body = (await request.json().catch(() => null)) as { id?: unknown; name?: unknown; wants?: unknown } | null;
     const id = Number(body?.id);
     if (!Number.isInteger(id) || id <= 0) return fail("Membro inválido.");
 
@@ -70,10 +70,11 @@ export async function PATCH(request: Request) {
       if (error) return fail(error.code === "23505" ? "Já existe um membro com esse nick." : isSetupMissing(error) ? SETUP_HINT : "Não foi possível trocar o nick.", error.code === "23505" ? 409 : 500);
       if (!data) return fail("Esse membro não existe mais.", 404);
     }
-    if (body?.types !== undefined) {
-      if (!Array.isArray(body.types) || body.types.length > 40 || !body.types.every(isBoostType)) return fail("Lista de tipos inválida.");
+    if (body?.wants !== undefined) {
+      const wants = parseWants(body.wants);
+      if (!wants) return fail("Lista de boosts inválida.");
       try {
-        await saveWants(id, [...new Set(body.types as string[])]);
+        await saveWants(id, wants);
       } catch (e) {
         if (e instanceof GuildDataError && (e as { code?: string }).code === "23503") return fail("Esse membro não existe mais.", 404);
         throw e;

@@ -284,3 +284,10 @@ Modificados: `src/types/pokemon.ts`, `src/lib/supabase/catalog.ts`, `src/lib/pok
 
 ### Verificação
 `tsc --noEmit` e `check:pokedex` (12/12) sem erros. Construtor da global testado com dados de exemplo (regionais, Mega, evoluções exclusivas de forma regional). Interface testada em Chromium com servidor simulado: busca, formulário, Shiny, forma regional, edição, payload enviado. **Não verificado:** visual com Tailwind e `npm run build` (sem Next/Tailwind para Linux no ambiente).
+
+## Boosts da guilda: nível por tipo
+- Em **Meus boosts**, cada tipo marcado ganha uma linha com os níveis Novice, Elemental, Common, Enhanced, Potent e Advanced. Ao marcar um tipo vem só **Advanced**; dá para somar outros (ex.: Ghost = Potent + Advanced). Sempre fica pelo menos um nível por tipo. Atalhos "Todos: Só Advanced / Potent + Advanced / Todos os níveis".
+- Em **Drops do boss**, os nomes aparecem em cada linha de stone (ex.: "Potent Ghost"), só de quem quer aquele nível.
+- Banco: `supabase/migrations/0010_guild_boost_tiers.sql` (coluna `tiers` + função `save_guild_tier_wants`). Rodar no SQL Editor **antes** de publicar o código novo.
+- A API agora usa `{ wants: [{ type, tiers }] }` no lugar de `{ types: [] }` (`/api/guild/wants`, `/api/guild/session`, `/api/guild/overview`, `/api/admin/guild-members`).
+- Editor de membro do admin usa o mesmo seletor.

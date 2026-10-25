@@ -2,20 +2,17 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, LogOut } from "lucide-react";
-import { isBoostType, STONE_TIERS } from "@/config/guildBoost";
-import type { PokemonType } from "@/types/pokemon";
+import { normalizeWants, sameWants, STONE_TIERS, type BoostWant } from "@/config/guildBoost";
 import { BoostTypePicker } from "./BoostTypePicker";
 import { StoneLog } from "./StoneLog";
 
-type Person = { name: string; types: string[] };
+type Person = { name: string; wants: BoostWant[] };
 type Tab = "boosts" | "drops";
-type Session = { status: "loading" } | { status: "out" } | { status: "in"; name: string; saved: PokemonType[] };
+type Session = { status: "loading" } | { status: "out" } | { status: "in"; name: string; saved: BoostWant[] };
 
 const inputClass = "w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm text-fg placeholder:text-muted/60";
 const NICK_KEY = "guild_nick";
 
-const onlyTypes = (list: unknown): PokemonType[] => (Array.isArray(list) ? list.filter(isBoostType) : []);
-const sameTypes = (a: PokemonType[], b: PokemonType[]) => a.length === b.length && a.every((t) => b.includes(t));
 
 async function readJson(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -24,7 +21,7 @@ async function readJson(response: Response) {
 export function GuildPanel() {
   const [tab, setTab] = useState<Tab>("boosts");
   const [session, setSession] = useState<Session>({ status: "loading" });
-  const [draft, setDraft] = useState<PokemonType[]>([]);
+  const [draft, setDraft] = useState<BoostWant[]>([]);
   const [nick, setNick] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,7 +38,7 @@ export function GuildPanel() {
       const response = await fetch("/api/guild/overview", { cache: "no-store" });
       const data = await readJson(response);
       if (!response.ok) throw new Error(String(data.error || "Não foi possível carregar a guilda."));
-      setPeople(data.people as Person[]);
+      setPeople((data.people as Person[]).map((p) => ({ ...p, wants: normalizeWants(p.wants) })));
     } catch (e) {
       setPeopleError(e instanceof Error ? e.message : "Erro ao carregar a guilda.");
     } finally {
@@ -49,9 +46,9 @@ export function GuildPanel() {
     }
   }, []);
 
-  const enter = (name: string, types: PokemonType[]) => {
-    setSession({ status: "in", name, saved: types });
-    setDraft(types);
+  const enter = (name: string, wants: BoostWant[]) => {
+    setSession({ status: "in", name, saved: wants });
+    setDraft(wants);
   };
 
   useEffect(() => {
@@ -66,7 +63,7 @@ export function GuildPanel() {
         const data = await readJson(response);
         if (!alive) return;
         const member = data.member as { name: string } | null | undefined;
-        if (response.ok && member) enter(member.name, onlyTypes(data.types));
+        if (response.ok && member) enter(member.name, normalizeWants(data.wants));
         else setSession({ status: "out" });
       })
       .catch(() => alive && setSession({ status: "out" }));
@@ -97,7 +94,7 @@ export function GuildPanel() {
       }
       setPassword("");
       setSaved(false);
-      enter(member.name, onlyTypes(data.types));
+      enter(member.name, normalizeWants(data.wants));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao entrar.");
     } finally {
@@ -119,16 +116,16 @@ export function GuildPanel() {
     setError("");
     setSaved(false);
     try {
-      const response = await fetch("/api/guild/wants", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ types: draft }) });
+      const response = await fetch("/api/guild/wants", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wants: draft }) });
       const data = await readJson(response);
       if (response.status === 401) {
         setSession({ status: "out" });
         throw new Error(String(data.error || "Sua sessão acabou. Entre de novo."));
       }
       if (!response.ok) throw new Error(String(data.error || "Não foi possível salvar."));
-      const types = onlyTypes(data.types);
-      setSession({ status: "in", name: session.name, saved: types });
-      setDraft(types);
+      const wants = normalizeWants(data.wants);
+      setSession({ status: "in", name: session.name, saved: wants });
+      setDraft(wants);
       setSaved(true);
       void loadPeople();
     } catch (e) {
@@ -138,12 +135,12 @@ export function GuildPanel() {
     }
   }
 
-  const dirty = session.status === "in" && !sameTypes(draft, session.saved);
+  const dirty = session.status === "in" && !sameWants(draft, session.saved);
 
   return (
     <div className="p-5 pr-14">
       <h2 className="text-xl font-semibold">Boosts da guilda</h2>
-      <p className="mt-1 text-sm text-muted">Escolha os tipos de stone que você quer receber do boss. Quando o drop é colado, o site mostra quem precisa de cada uma.</p>
+      <p className="mt-1 text-sm text-muted">Escolha os tipos de stone que você quer receber do boss e, de cada tipo, quais níveis (Novice a Advanced). Quando o drop é colado, o site mostra quem precisa de cada stone.</p>
 
       <div role="tablist" aria-label="Seções da guilda" className="mt-4 flex gap-1.5">
         {(
@@ -205,7 +202,7 @@ export function GuildPanel() {
               <>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm">
-                    Olá, <b className="font-semibold text-gold">{session.name}</b>! Marque os tipos que você quer receber.
+                    Olá, <b className="font-semibold text-gold">{session.name}</b>! Marque os tipos que você quer receber e escolha os níveis de cada um.
                   </p>
                   <button type="button" onClick={() => void logout()} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-fg">
                     <LogOut className="size-4" aria-hidden /> Sair
@@ -228,7 +225,7 @@ export function GuildPanel() {
                 </div>
                 {saved && !dirty && (
                   <p role="status" className="mt-3 flex items-center gap-1.5 text-sm text-teal">
-                    <CheckCircle2 className="size-4" aria-hidden /> Salvo! Você aparece nos drops dos tipos escolhidos.
+                    <CheckCircle2 className="size-4" aria-hidden /> Salvo! Você aparece nos drops dos tipos e níveis escolhidos.
                   </p>
                 )}
                 {error && (

@@ -69,27 +69,29 @@ export function StoneLog({ people, loading, error }: { people: PersonWants[] | n
               </h3>
               <ul>
                 {g.stones.map((s, i) => (
-                  <li key={i} className="flex justify-between gap-2 border-t border-line py-1 text-sm first:border-t-0">
-                    <b className="font-semibold">
-                      {s.qty}x {s.tier}
-                    </b>
-                    <span className="whitespace-nowrap text-muted">
-                      +{s.min} a +{s.max} · {s.chance}%
-                    </span>
+                  <li key={i} className="border-t border-line py-1.5 first:border-t-0 first:pt-0">
+                    <div className="flex justify-between gap-2 text-sm">
+                      <b className="font-semibold">
+                        {s.qty}x {s.tier}
+                      </b>
+                      <span className="whitespace-nowrap text-muted">
+                        +{s.min} a +{s.max} · {s.chance}%
+                      </span>
+                    </div>
+                    {s.names.length > 0 ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {s.names.map((name) => (
+                          <span key={name} className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-semibold text-ink">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs text-muted">Ninguém precisa</p>
+                    )}
                   </li>
                 ))}
               </ul>
-              {g.names.length > 0 ? (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {g.names.map((name) => (
-                    <span key={name} className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-semibold text-ink">
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2.5 text-xs text-muted">Ninguém precisa</p>
-              )}
             </section>
           ))}
         </div>

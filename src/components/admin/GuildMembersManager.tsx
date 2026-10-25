@@ -5,12 +5,11 @@ import { AlertCircle, CheckCircle2, FileJson, Plus, Search, Trash2, UserPlus } f
 import { BoostTypePicker } from "@/components/guild/BoostTypePicker";
 import { TypeIcon } from "@/components/pokedex/TypeIcon";
 import { Dialog } from "@/components/ui/Dialog";
-import { isBoostType } from "@/config/guildBoost";
+import { normalizeWants, sameWants, STONE_TIERS, type BoostWant } from "@/config/guildBoost";
 import { normalizeNick } from "@/lib/guild/boostMembers";
 import { normalizeText } from "@/lib/talents/items";
-import type { PokemonType } from "@/types/pokemon";
 
-type Member = { id: number; name: string; types: PokemonType[] };
+type Member = { id: number; name: string; wants: BoostWant[] };
 type Notice = { kind: "ok" | "error"; text: string; details?: string };
 type Filter = "all" | "empty";
 
@@ -49,7 +48,7 @@ export function GuildMembersManager() {
       const response = await fetch("/api/admin/guild-members", { cache: "no-store" });
       const data = await readJson(response);
       if (!response.ok) throw new Error(String(data.error || "Não foi possível carregar os membros."));
-      setMembers((data.members as { id: number; name: string; types: unknown[] }[]).map((m) => ({ ...m, types: m.types.filter(isBoostType) })));
+      setMembers((data.members as { id: number; name: string; wants: unknown }[]).map((m) => ({ ...m, wants: normalizeWants(m.wants) })));
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Erro ao carregar os membros.");
     } finally {
@@ -61,12 +60,12 @@ export function GuildMembersManager() {
     void load();
   }, [load]);
 
-  const emptyCount = useMemo(() => members.filter((m) => m.types.length === 0).length, [members]);
+  const emptyCount = useMemo(() => members.filter((m) => m.wants.length === 0).length, [members]);
   const visible = useMemo(() => {
     // Ignora maiúsculas, acentos e espaços: "true" acha "T R U E".
     const compact = (text: string) => normalizeText(text).replace(/\s+/g, "");
     const q = compact(query);
-    return members.filter((m) => (!q || compact(m.name).includes(q)) && (filter === "all" || m.types.length === 0));
+    return members.filter((m) => (!q || compact(m.name).includes(q)) && (filter === "all" || m.wants.length === 0));
   }, [members, query, filter]);
 
   async function addNames(names: string[], fromFile?: string[]) {
@@ -209,10 +208,12 @@ export function GuildMembersManager() {
                 <li key={m.id}>
                   <button type="button" onClick={() => setEditingId(m.id)} className="flex h-full w-full flex-col gap-2 rounded-xl border border-line bg-black/25 p-3 text-left transition-colors hover:border-gold/50 hover:bg-white/5">
                     <span className="font-semibold">{m.name}</span>
-                    {m.types.length > 0 ? (
+                    {m.wants.length > 0 ? (
                       <span className="flex flex-wrap gap-1">
-                        {m.types.map((t) => (
-                          <TypeIcon key={t} type={t} className="size-6" />
+                        {m.wants.map((w) => (
+                          <span key={w.type} title={w.tiers.map((k) => STONE_TIERS.find((t) => t.key === k)?.label ?? k).join(", ")}>
+                            <TypeIcon type={w.type} className="size-6" />
+                          </span>
                         ))}
                       </span>
                     ) : (
@@ -247,11 +248,11 @@ export function GuildMembersManager() {
 
 function MemberEditor({ member, onClose, onChanged }: { member: Member; onClose: () => void; onChanged: (message?: string) => Promise<void> }) {
   const [name, setName] = useState(member.name);
-  const [types, setTypes] = useState<PokemonType[]>(member.types);
+  const [wants, setWants] = useState<BoostWant[]>(member.wants);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const changed = normalizeNick(name) !== member.name || types.length !== member.types.length || types.some((t) => !member.types.includes(t));
+  const changed = normalizeNick(name) !== member.name || !sameWants(wants, member.wants);
 
   async function request(method: "PATCH" | "DELETE", body: unknown) {
     const response = await fetch("/api/admin/guild-members", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -264,7 +265,7 @@ function MemberEditor({ member, onClose, onChanged }: { member: Member; onClose:
     setError("");
     try {
       const nick = normalizeNick(name);
-      await request("PATCH", { id: member.id, ...(nick !== member.name ? { name: nick } : {}), types });
+      await request("PATCH", { id: member.id, ...(nick !== member.name ? { name: nick } : {}), wants });
       await onChanged(`${nick} atualizado.`);
       onClose();
     } catch (e) {
@@ -296,8 +297,8 @@ function MemberEditor({ member, onClose, onChanged }: { member: Member; onClose:
         <span className="mb-1 block text-xs text-muted">Nick</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} className={inputClass} />
       </label>
-      <p className="mb-2 mt-4 text-xs text-muted">Tipos que ele quer receber</p>
-      <BoostTypePicker value={types} onChange={setTypes} disabled={busy} />
+      <p className="mb-2 mt-4 text-xs text-muted">Tipos e níveis que ele quer receber</p>
+      <BoostTypePicker value={wants} onChange={setWants} disabled={busy} />
 
       {error && (
         <p role="alert" className="mt-3 flex items-start gap-1.5 text-sm text-red-300">

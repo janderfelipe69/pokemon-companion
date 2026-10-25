@@ -14,10 +14,10 @@ const dataError = (e: unknown) => (e instanceof GuildDataError ? fail(e.message,
 export async function GET() {
   try {
     const id = await getMemberSessionId();
-    if (!id) return json({ member: null, types: [] });
+    if (!id) return json({ member: null, wants: [] });
     const member = (await listMembers()).find((m) => m.id === id);
-    if (!member) return json({ member: null, types: [] }); // o admin removeu esse membro
-    return json({ member, types: (await listWants()).get(id) ?? [] });
+    if (!member) return json({ member: null, wants: [] }); // o admin removeu esse membro
+    return json({ member, wants: (await listWants()).get(id) ?? [] });
   } catch (e) {
     return dataError(e);
   }
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     if (!isMemberPasswordCorrect(password)) return fail("Senha incorreta.", 401);
 
     await createMemberSession(member.id);
-    return json({ member, types: (await listWants()).get(member.id) ?? [] });
+    return json({ member, wants: (await listWants()).get(member.id) ?? [] });
   } catch (e) {
     return dataError(e);
   }
