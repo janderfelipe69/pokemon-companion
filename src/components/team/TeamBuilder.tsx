@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, ArrowUp, ChevronDown, RefreshCw, Star } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { HUNT_TIERS, TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
@@ -155,7 +156,9 @@ export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; 
               <p className="mt-4 flex items-start gap-2 rounded-lg border border-gold/30 bg-gold/5 p-3 text-sm text-muted">
                 <Star className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
                 <span>
-                  Neste tipo de time, os Pokémon são sorteados só entre os <strong className="font-medium text-fg">{pool.size} da lista de úteis</strong>.
+                  Neste tipo de time, os Pokémon são sorteados só entre os <strong className="font-medium text-fg">{pool.size} da lista de úteis</strong>
+                  {build ? <>; <strong className="font-medium text-fg">{build.candidates.length}</strong> deles batem a efetividade deste alvo</> : null}. O limite de T1 do tipo de time não vale com a lista.{" "}
+                  <Link href="/admin#times" className="text-gold underline underline-offset-2 hover:opacity-80">Editar a lista</Link>
                 </span>
               </p>
             )}

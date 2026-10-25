@@ -163,7 +163,11 @@ function pickFrom(options: Candidate[], usedTypes: Set<PokemonType>, random: (()
   return random ? pool[Math.floor(random() * pool.length)] : pool[0];
 }
 
-function buildOneTeam(candidates: Candidate[], preset: TeamPreset, profile: WeaknessProfile, seed: number, allowed: AttackOption[]): TeamResult {
+/**
+ * `limitsOff`: com uma lista de Pokémon úteis ativa, o limite de Pokémon por tier (ex.: no máximo 2 T1) não vale,
+ * porque quem escolheu os Pokémon foi o usuário. A preferência entre tiers (T2 antes de T1) continua.
+ */
+function buildOneTeam(candidates: Candidate[], preset: TeamPreset, profile: WeaknessProfile, seed: number, allowed: AttackOption[], limitsOff = false): TeamResult {
   const random = seed === 0 ? null : rng(seed);
   const limits = new Map([...preset.tiers, ...(preset.fallback ?? [])].map((t) => [t.tier, t]));
   const picked: Candidate[] = [];
@@ -172,7 +176,7 @@ function buildOneTeam(candidates: Candidate[], preset: TeamPreset, profile: Weak
   const countOf = (tier: Tier) => picked.filter((c) => c.entry.pokemon.tier === tier && !c.isExtra).length;
   const canTake = (c: Candidate) => {
     if (usedSpecies.has(speciesKey(c.entry))) return false;
-    const max = c.isExtra ? undefined : limits.get(c.entry.pokemon.tier!)?.max;
+    const max = c.isExtra || limitsOff ? undefined : limits.get(c.entry.pokemon.tier!)?.max;
     return max === undefined || countOf(c.entry.pokemon.tier!) < max;
   };
   const take = (c: Candidate) => {
@@ -242,7 +246,7 @@ export function buildTeams(entries: PokedexEntry[], target: PokedexEntry, preset
   const seen = new Set<string>();
   for (let attempt = 0; teams.length < count && attempt < 60; attempt++) {
     const seed = round === 0 && attempt === 0 ? 0 : round * 1000 + attempt + 1;
-    const team = buildOneTeam(usable, preset, profile, seed, allowed);
+    const team = buildOneTeam(usable, preset, profile, seed, allowed, !!pool && pool.size > 0);
     if (team.members.length === 0) break;
     const sig = signature(team);
     if (seen.has(sig)) continue;
