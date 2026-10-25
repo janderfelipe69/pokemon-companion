@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { TierLabel } from "@/components/tiers/TierLabel";
+import { PokemonDropList } from "@/components/drops/DropLists";
+import type { DropsIndex } from "@/lib/drops/types";
 import { formatBrlRange, formatKkRange } from "@/lib/money";
 import type { PokedexEntry } from "@/types/pokedex";
 import { PokemonImage } from "./PokemonImage";
@@ -16,7 +18,16 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** Ficha do Pokémon. Para novas informações, basta adicionar outra <Section>. */
-export function PokemonDetail({ entry }: { entry: PokedexEntry }) {
+export function PokemonDetail({
+  entry,
+  drops,
+  onOpenItem,
+}: {
+  entry: PokedexEntry;
+  /** Drops de itens (se houver). Clicar num item chama `onOpenItem`. */
+  drops?: DropsIndex;
+  onOpenItem?: (itemId: number) => void;
+}) {
   const { pokemon: p } = entry;
 
   const pending = [
@@ -63,6 +74,11 @@ export function PokemonDetail({ entry }: { entry: PokedexEntry }) {
               </Section>
             )}
           </div>
+        )}
+        {drops && onOpenItem && drops.byPokemon.has(p.id) && (
+          <Section title="Drops de itens">
+            <PokemonDropList pokemonId={p.id} index={drops} onOpenItem={onOpenItem} />
+          </Section>
         )}
         {p.notes && (
           <Section title="Observações">

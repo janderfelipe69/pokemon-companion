@@ -46,7 +46,18 @@ export async function GET() {
     const { data: reqs } = await db.from("talent_requirements").select("item_id");
     for (const r of (reqs ?? []) as { item_id: number }[]) uses.set(r.item_id, (uses.get(r.item_id) ?? 0) + 1);
 
-    return NextResponse.json({ items: ((data ?? []) as ItemRow[]).map((r) => ({ ...toItem(r), uses: uses.get(r.id) ?? 0 })) });
+    // Quantos Pokémon dropam cada item (conta cada Pokémon uma vez, mesmo com várias zonas).
+    const droppers = new Map<number, Set<string>>();
+    const { data: drops } = await db.from("pokemon_talent_drops").select("item_id, pokemon_id");
+    for (const d of (drops ?? []) as { item_id: number; pokemon_id: string }[]) {
+      const set = droppers.get(d.item_id) ?? new Set<string>();
+      set.add(d.pokemon_id);
+      droppers.set(d.item_id, set);
+    }
+
+    return NextResponse.json({
+      items: ((data ?? []) as ItemRow[]).map((r) => ({ ...toItem(r), uses: uses.get(r.id) ?? 0, pokemon: droppers.get(r.id)?.size ?? 0 })),
+    });
   } catch {
     return fail("Erro interno ao consultar os itens.", 500);
   }

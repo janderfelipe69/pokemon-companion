@@ -19,7 +19,17 @@ function CategoryIcon({ category, className = "size-6" }: { category: TalentCate
 }
 
 /** Um talento no estilo da janela do jogo: o bônus à esquerda e os itens (com a quantidade) à direita. */
-function TalentCard({ talent, highlight }: { talent: PublicTalent; highlight: string }) {
+function TalentCard({
+  talent,
+  highlight,
+  onOpenItem,
+  pokemonCountByItem,
+}: {
+  talent: PublicTalent;
+  highlight: string;
+  onOpenItem?: (itemId: number) => void;
+  pokemonCountByItem?: Map<number, number>;
+}) {
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-line bg-panel p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <p className="min-w-0 flex-1 text-sm font-medium leading-snug">{talent.description}</p>
@@ -28,14 +38,36 @@ function TalentCard({ talent, highlight }: { talent: PublicTalent; highlight: st
           {talent.requirements.map(({ item, quantity }) => {
             const match = highlight !== "" && normalizeText(item.name).includes(highlight);
             return (
-              <li key={item.id} className="flex w-[4.5rem] flex-col items-center gap-1" title={`${item.name} × ${quantity}`}>
-                <span className="relative">
-                  <ItemImage path={item.imagePath} name={item.name} className={`size-12 ${match ? "ring-2 ring-gold" : ""}`} />
-                  <span className="absolute -bottom-1 -right-1 rounded-md bg-black/85 px-1 text-[11px] font-bold tabular-nums leading-tight text-white ring-1 ring-white/20">
-                    {quantity}
-                  </span>
-                </span>
-                <span className={`line-clamp-2 w-full break-words text-center text-[10px] leading-tight ${match ? "font-semibold text-gold" : "text-muted"}`}>{item.name}</span>
+              <li key={item.id} className="w-[4.5rem]">
+                {(() => {
+                  const dropCount = pokemonCountByItem?.get(item.id);
+                  const hint = dropCount === undefined ? "" : dropCount > 0 ? ` · ${dropCount} Pokémon dropam` : " · nenhum Pokémon cadastrado";
+                  const content = (
+                    <>
+                      <span className="relative">
+                        <ItemImage path={item.imagePath} name={item.name} className={`size-12 ${match ? "ring-2 ring-gold" : ""}`} />
+                        <span className="absolute -bottom-1 -right-1 rounded-md bg-black/85 px-1 text-[11px] font-bold tabular-nums leading-tight text-white ring-1 ring-white/20">
+                          {quantity}
+                        </span>
+                      </span>
+                      <span className={`line-clamp-2 w-full break-words text-center text-[10px] leading-tight ${match ? "font-semibold text-gold" : "text-muted"}`}>{item.name}</span>
+                    </>
+                  );
+                  return onOpenItem ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenItem(item.id)}
+                      title={`${item.name} × ${quantity}${hint} (clique para ver quem dropa)`}
+                      className="flex w-full flex-col items-center gap-1 rounded-lg p-0.5 hover:bg-white/5"
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <span className="flex flex-col items-center gap-1" title={`${item.name} × ${quantity}`}>
+                      {content}
+                    </span>
+                  );
+                })()}
               </li>
             );
           })}
@@ -47,7 +79,15 @@ function TalentCard({ talent, highlight }: { talent: PublicTalent; highlight: st
   );
 }
 
-export function TalentsBrowser({ categories }: { categories: PublicTalentCategory[] }) {
+export function TalentsBrowser({
+  categories,
+  onOpenItem,
+  pokemonCountByItem,
+}: {
+  categories: PublicTalentCategory[];
+  onOpenItem?: (itemId: number) => void;
+  pokemonCountByItem?: Map<number, number>;
+}) {
   const [selected, setSelected] = useState(categories.find((c) => c.talents.length > 0)?.key ?? categories[0]?.key ?? "");
   const [query, setQuery] = useState("");
 
@@ -93,7 +133,7 @@ export function TalentsBrowser({ categories }: { categories: PublicTalentCategor
               </h2>
               <ul className="space-y-2">
                 {talents.map((t) => (
-                  <TalentCard key={t.id} talent={t} highlight={q} />
+                  <TalentCard key={t.id} talent={t} highlight={q} onOpenItem={onOpenItem} pokemonCountByItem={pokemonCountByItem} />
                 ))}
               </ul>
             </section>
@@ -132,7 +172,7 @@ export function TalentsBrowser({ categories }: { categories: PublicTalentCategor
             {category.talents.length > 0 ? (
               <ul className="space-y-2">
                 {category.talents.map((t) => (
-                  <TalentCard key={t.id} talent={t} highlight="" />
+                  <TalentCard key={t.id} talent={t} highlight="" onOpenItem={onOpenItem} pokemonCountByItem={pokemonCountByItem} />
                 ))}
               </ul>
             ) : (

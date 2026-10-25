@@ -2,7 +2,8 @@
 export const ITEM_BUCKET = "talent-items";
 
 export type TalentItem = { id: number; name: string; imagePath: string | null };
-export type TalentItemWithUses = TalentItem & { uses: number };
+/** `uses` = em quantos talentos o item aparece; `pokemon` = quantos Pokémon dropam o item. */
+export type TalentItemWithUses = TalentItem & { uses: number; pokemon: number };
 export type TalentRequirement = { itemId: number; quantity: number };
 export type TalentEntry = { id: number | null; description: string; requirements: TalentRequirement[] };
 

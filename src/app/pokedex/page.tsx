@@ -3,8 +3,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PokedexBrowser } from "@/components/pokedex/PokedexBrowser";
+import { buildDropsClientData } from "@/lib/drops/build";
 import { buildPokedexEntries } from "@/lib/pokedex";
 import { getCatalog } from "@/lib/supabase/catalog";
+import { getDropsRaw } from "@/lib/supabase/drops";
 
 export const metadata = { title: "Pokédex | Pokémon Companion" };
 
@@ -15,6 +17,7 @@ export default async function PokedexPage() {
   // Mesma fonte de Tiers e Valores: tier, preços e tipos ofensivos não são duplicados.
   const { pokemon, source } = await getCatalog();
   const entries = buildPokedexEntries(pokemon);
+  const drops = buildDropsClientData(entries, await getDropsRaw(), { allItems: false });
 
   return (
     <>
@@ -31,7 +34,7 @@ export default async function PokedexPage() {
           Os dois são independentes e podem ser diferentes.
         </p>
       </Card>
-      <PokedexBrowser entries={entries} />
+      <PokedexBrowser entries={entries} drops={drops} />
       <p className="mt-10 text-xs text-muted">
         Pokémon e os nomes dos personagens são marcas da Nintendo. Imagens: repositório PokeAPI/sprites (artes oficiais ©
         Nintendo, Game Freak e The Pokémon Company, usadas aqui sem fins comerciais). Tipagem original: PokéAPI. Projeto de

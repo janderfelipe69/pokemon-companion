@@ -7,6 +7,7 @@ import { ItemImage } from "@/components/talents/ItemImage";
 import { nameFromFile, normalizeText, type TalentItemWithUses } from "@/lib/talents/items";
 
 type Notice = { kind: "ok" | "error"; text: string; details?: string[] };
+type Filter = "all" | "no-pokemon" | "with-pokemon";
 
 const inputClass = "w-full rounded-lg border border-line bg-raised px-3 py-2 text-sm text-fg placeholder:text-muted/60";
 const ACCEPT = "image/png,image/jpeg,image/gif,image/webp";
@@ -20,6 +21,7 @@ export function ItemsManager({ onChanged }: { onChanged: () => void }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -47,8 +49,12 @@ export function ItemsManager({ onChanged }: { onChanged: () => void }) {
 
   const visible = useMemo(() => {
     const q = normalizeText(query);
-    return q ? items.filter((i) => normalizeText(i.name).includes(q)) : items;
-  }, [items, query]);
+    return items.filter((i) => {
+      if (q && !normalizeText(i.name).includes(q)) return false;
+      return filter === "all" || (filter === "no-pokemon" ? i.pokemon === 0 : i.pokemon > 0);
+    });
+  }, [items, query, filter]);
+  const withoutPokemon = useMemo(() => items.filter((i) => i.pokemon === 0).length, [items]);
 
   async function upload(files: File[]) {
     const images = files.filter((f) => f.type.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(f.name));
@@ -162,13 +168,36 @@ export function ItemsManager({ onChanged }: { onChanged: () => void }) {
         </div>
       ) : (
         <>
-          <label className="mt-6 block max-w-md">
-            <span className="mb-1.5 block text-sm text-muted">Buscar item pelo nome</span>
-            <span className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ex.: earth ball" className={`${inputClass} pl-9`} />
-            </span>
-          </label>
+          <div className="mt-6 flex flex-wrap items-end gap-3">
+            <label className="block min-w-56 flex-1 sm:max-w-md">
+              <span className="mb-1.5 block text-sm text-muted">Buscar item pelo nome</span>
+              <span className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
+                <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ex.: earth ball" className={`${inputClass} pl-9`} />
+              </span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["all", "Todos", items.length],
+                  ["no-pokemon", "Sem Pokémon que dropa", withoutPokemon],
+                  ["with-pokemon", "Com Pokémon", items.length - withoutPokemon],
+                ] as const
+              ).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFilter(key)}
+                  aria-pressed={filter === key}
+                  className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    filter === key ? "border-gold bg-gold/15 text-gold" : "border-line bg-raised text-muted hover:text-fg"
+                  }`}
+                >
+                  {label} <span className="opacity-60">{count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="mt-3 text-sm text-muted" aria-live="polite">
             {items.length} {items.length === 1 ? "item" : "itens"} · mostrando {visible.length}
           </p>
@@ -185,7 +214,8 @@ export function ItemsManager({ onChanged }: { onChanged: () => void }) {
                 >
                   <ItemImage path={item.imagePath} name={item.name} className="size-14" />
                   <span className="line-clamp-2 w-full break-words text-xs font-medium leading-tight">{item.name}</span>
-                  <span className="text-[10px] text-muted">{item.uses === 0 ? "sem uso" : `em ${item.uses} ${item.uses === 1 ? "talento" : "talentos"}`}</span>
+                  <span className="text-[10px] text-muted">{item.uses === 0 ? "sem talento" : `em ${item.uses} ${item.uses === 1 ? "talento" : "talentos"}`}</span>
+                  <span className={`text-[10px] ${item.pokemon === 0 ? "text-amber-300" : "text-muted"}`}>{item.pokemon === 0 ? "sem Pokémon" : `${item.pokemon} Pokémon`}</span>
                 </button>
               ))}
             </div>
@@ -300,7 +330,10 @@ function ItemEditor({ item, onClose, onSaved }: { item: TalentItemWithUses; onCl
           </label>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted">{item.uses === 0 ? "Este item ainda não está em nenhum talento." : `Usado em ${item.uses} ${item.uses === 1 ? "talento" : "talentos"}.`}</p>
+      <p className="mt-3 text-xs text-muted">
+        {item.uses === 0 ? "Este item ainda não está em nenhum talento." : `Usado em ${item.uses} ${item.uses === 1 ? "talento" : "talentos"}.`}{" "}
+        {item.pokemon === 0 ? "Nenhum Pokémon dropa este item ainda (cadastre o drop no Pokémon, em Pokémon > Meu catálogo)." : `Dropa de ${item.pokemon} Pokémon.`}
+      </p>
 
       {error && (
         <p role="alert" className="mt-3 flex items-start gap-1.5 text-sm text-red-300">

@@ -38,4 +38,5 @@ Sem as variáveis de ambiente, o site continua funcionando normalmente com os ar
 - `pokemon_defensive_types` e `pokemon_offensive_types`: tipos defensivos e ofensivos independentes.
 - `talent_items` e `pokemon_talent_drops`: itens (agora com imagem, ver `0006_talents.sql`) e quantidades de drops (`quantity` nula = desconhecida).
 - `talents` e `talent_requirements` (`0006_talents.sql`): os talentos de cada categoria e os itens que cada um pede. As imagens ficam no bucket público `talent-items` do Storage.
+- `pokemon_talent_drops` (`0007_pokemon_drops.sql`): agora guarda zona (base/wildscape/primal), quantidade mínima e máxima, chance em % ou "muito raro". Um item por Pokémon em cada zona.
 - **Segurança (RLS)**: qualquer visitante lê; só administrador autenticado insere, altera ou remove.

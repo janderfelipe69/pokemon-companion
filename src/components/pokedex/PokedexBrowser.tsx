@@ -2,12 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { Search, SearchX } from "lucide-react";
+import { DropsDialog } from "@/components/drops/DropsDialog";
+import { useDropsNav } from "@/components/drops/useDropsNav";
 import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { tierLabel } from "@/config/tiers";
 import {
   emptyPokedexFilters, filterEntries, hasPokedexFilters, NORMAL_VARIANT, variantOptions, type PokedexFilters,
 } from "@/lib/pokedexFilters";
+import { indexDrops, type DropsClientData } from "@/lib/drops/types";
 import { TIER_KEYS } from "@/lib/tierFilters";
 import type { PokedexEntry } from "@/types/pokedex";
 import { PokemonCard } from "./PokemonCard";
@@ -17,10 +20,12 @@ import { TypeSelect } from "./TypeSelect";
 const PAGE_SIZE = 48;
 const selectClass = "w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm text-fg";
 
-export function PokedexBrowser({ entries }: { entries: PokedexEntry[] }) {
+export function PokedexBrowser({ entries, drops }: { entries: PokedexEntry[]; drops?: DropsClientData }) {
   const [filters, setFilters] = useState<PokedexFilters>(emptyPokedexFilters);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const dropsNav = useDropsNav();
+  const dropsIndex = useMemo(() => (drops ? indexDrops(drops) : undefined), [drops]);
 
   const variants = useMemo(() => variantOptions(entries), [entries]);
   const results = useMemo(() => filterEntries(entries, filters), [entries, filters]);
@@ -127,8 +132,9 @@ export function PokedexBrowser({ entries }: { entries: PokedexEntry[] }) {
       )}
 
       <Dialog open={selected !== null} onClose={() => setSelectedId(null)} title={selected?.pokemon.sourceName ?? "Detalhes do Pokémon"}>
-        {selected && <PokemonDetail entry={selected} />}
+        {selected && <PokemonDetail entry={selected} drops={dropsIndex} onOpenItem={(id) => dropsNav.open({ kind: "item", id })} />}
       </Dialog>
+      {drops && <DropsDialog data={drops} nav={dropsNav} />}
     </div>
   );
 }

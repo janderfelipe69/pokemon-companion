@@ -11,6 +11,7 @@ import { catalogRecordOf, entryImageUrl } from "@/lib/globalDex";
 import type { GlobalDexEntry } from "@/types/globalDex";
 import { POKEMON_TYPES, TIERS, type PokemonType } from "@/types/pokemon";
 import type { AdminRow } from "./types";
+import { dropsPayload, PokemonDropsEditor, usePokemonDrops, validateDrops } from "./PokemonDropsEditor";
 
 type Fields = {
   tier: string;
@@ -73,6 +74,7 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
     entry?.types ?? [...(row?.pokemon_defensive_types ?? [])].sort((a, b) => a.position - b.position).map((t) => t.type_code);
   const evolutionText = entry ? (entry.evolvesTo ? entry.evolvesTo.join(", ") : row?.evolution ?? "") : row?.evolution ?? "";
   const title = record.variant ? `${record.variant} ${record.name}` : record.name;
+  const dropsState = usePokemonDrops(record.id, existing !== undefined);
 
   function chooseShiny(next: boolean) {
     if (!entry || next === shiny) return;
@@ -93,6 +95,8 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
     event.preventDefault();
     if (!fields.tier) return setError("Escolha o tier do Pokémon.");
     if (fields.offensiveTypes.length < 1) return setError("Escolha pelo menos 1 tipo ofensivo (máximo 2).");
+    const dropsProblem = dropsState.dirty ? validateDrops(dropsState.drops) : null;
+    if (dropsProblem) return setError(dropsProblem);
     setSaving(true);
     setError("");
     try {
@@ -120,6 +124,17 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível salvar.");
+
+      // Drops só são enviados se você mexeu neles (e depois do Pokémon, que precisa existir no catálogo).
+      if (dropsState.dirty) {
+        const dropsResponse = await fetch("/api/admin/pokemon-drops", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pokemonId: record.id, drops: dropsPayload(dropsState.drops) }),
+        });
+        const dropsData = await dropsResponse.json().catch(() => ({}));
+        if (!dropsResponse.ok) throw new Error(`O Pokémon foi salvo, mas os drops não: ${dropsData.error || "erro ao salvar."}`);
+      }
       onSaved(existing ? `${title} atualizado no catálogo.` : `${title} adicionado ao catálogo.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao salvar.");
@@ -245,6 +260,8 @@ export function PokemonForm({ entry, row, rows, onSaved, onClose }: Props) {
             ))}
           </div>
         </fieldset>
+
+        <PokemonDropsEditor state={dropsState} />
 
         <label className={labelClass}>
           Observações <span className="text-xs">(opcional)</span>
