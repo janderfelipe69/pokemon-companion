@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowUp, ChevronDown, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { HUNT_TIERS, TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
 import { normalize } from "@/lib/pokemonFilters";
@@ -26,6 +26,16 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
   const [onlyTypes, setOnlyTypes] = useState<PokemonType[]>([]);
   const [round, setRound] = useState(0);
   const [showAll, setShowAll] = useState(false);
+
+  // Depois de escolher o alvo, a página desce sozinha até as fraquezas (e dá para voltar à lista com um clique).
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const weaknessRef = useRef<HTMLDivElement>(null);
+  const [scrollTick, setScrollTick] = useState(0);
+  const scrollTo = (element: HTMLElement | null) =>
+    element?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  useEffect(() => {
+    if (scrollTick > 0) scrollTo(weaknessRef.current); // o bloco só existe depois que o alvo foi escolhido e a tela atualizou
+  }, [scrollTick]);
 
   // Só Mythic, Legendary e Ultra Rare entram em rotação como alvo. Os tiers abaixo ficam de fora.
   const targets = useMemo(() => {
@@ -61,6 +71,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
     setOnlyTypes([]);
     setRound(0);
     setShowAll(false);
+    setScrollTick((t) => t + 1);
   };
   const changeTypes = (types: PokemonType[]) => {
     setOnlyTypes(types);
@@ -84,21 +95,30 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <h2 className={STEP}>
-          <span className={stepNumber}>1</span> O que você quer caçar?
-        </h2>
-        <TargetPicker targets={visibleTargets} selectedId={targetId} query={query} tier={tierFilter} onQuery={setQuery} onTier={setTierFilter} onSelect={pickTarget} />
-      </Card>
+      <div ref={pickerRef} className="scroll-mt-4">
+        <Card>
+          <h2 className={STEP}>
+            <span className={stepNumber}>1</span> O que você quer caçar?
+          </h2>
+          <TargetPicker targets={visibleTargets} selectedId={targetId} query={query} tier={tierFilter} onQuery={setQuery} onTier={setTierFilter} onSelect={pickTarget} />
+        </Card>
+      </div>
 
       {target && build && (
         <>
-          <Card>
-            <h2 className={STEP}>
-              <span className={stepNumber}>2</span> Fraquezas do alvo
-            </h2>
-            <WeaknessPanel target={target} profile={build.profile} />
-          </Card>
+          <div ref={weaknessRef} className="scroll-mt-4">
+            <Card>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-3 text-lg font-semibold">
+                  <span className={stepNumber}>2</span> Fraquezas do alvo
+                </h2>
+                <button type="button" onClick={() => scrollTo(pickerRef.current)} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-gold">
+                  <ArrowUp className="size-4" aria-hidden /> Trocar alvo
+                </button>
+              </div>
+              <WeaknessPanel target={target} profile={build.profile} />
+            </Card>
+          </div>
 
           <Card>
             <h2 className={STEP}>
