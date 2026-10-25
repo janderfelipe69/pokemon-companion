@@ -4,6 +4,15 @@ import { HAZARDS, requiredDamage } from "./hazards";
 /** Pokémon já validado: tem nome e dano maior que zero. `dmg` em k, sem o bônus das runas. */
 export type Mon = { id: string | null; name: string; dmg: number; lure: boolean };
 
+/**
+ * Ordem de cada rotação, igual à da Pokébar: quem tem lure primeiro, depois o Pokémon normal
+ * (lure, normal, lure, normal...). Entre os do mesmo tipo, o de maior dano vem antes.
+ * Não altera a lista original.
+ */
+export function pokebarOrder<T extends { lure: boolean; dmg: number }>(members: readonly T[]): T[] {
+  return members.slice().sort((a, b) => Number(b.lure) - Number(a.lure) || b.dmg - a.dmg);
+}
+
 export type Mode = {
   id: "3x3" | "2x2x2";
   label: string;

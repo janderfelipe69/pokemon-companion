@@ -4,7 +4,7 @@ import { fmtK, fmtNum, fmtSignedK } from "@/lib/damageTest/format";
 import {
   dropsFor, effectsOf, ESTIMATED_HAZARDS, HAZARDS, precisionFor, requiredDamage,
 } from "@/lib/damageTest/hazards";
-import { MODES, type Analysis, type Hint, type ModeAnalysis, type Plan } from "@/lib/damageTest/solver";
+import { MODES, pokebarOrder, type Analysis, type Hint, type ModeAnalysis, type Plan } from "@/lib/damageTest/solver";
 import type { DexOption } from "@/lib/damageTest/search";
 import { PokemonThumb } from "./PokemonThumb";
 import { badText, okText, td, th } from "./ui";
@@ -33,7 +33,7 @@ function TeamCard({ index, total, required, members, lookup }: { index: number; 
         <span className={margin >= 0 ? okText : badText}>({fmtSignedK(margin)})</span>
       </h3>
       <ul>
-        {members.slice().sort((a, b) => b.dmg - a.dmg).map((m, i) => (
+        {pokebarOrder(members).map((m, i) => (
           <li key={`${m.id ?? m.name}-${i}`} className="flex items-center gap-3 border-b border-dashed border-line py-1.5 last:border-0">
             <PokemonThumb src={lookup(m.id)?.image ?? null} alt="" className="size-8" />
             <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
@@ -66,7 +66,7 @@ function HintBlock({ hint, unit }: { hint: Hint; unit: string }) {
             <b>{unit} {i + 1} — {fmtK(team.total)}</b>{" "}
             {missing > 0 ? <span className={badText}>(falta {fmtK(missing)})</span> : <span className={okText}>(já fecha)</span>}
             <p className="text-muted">
-              {team.members.map((m) => `${m.name}${m.lure ? " (lure)" : ""} ${fmtNum(m.dmg)}k`).join(" + ")}
+              {pokebarOrder(team.members).map((m) => `${m.name}${m.lure ? " (lure)" : ""} ${fmtNum(m.dmg)}k`).join(" + ")}
               {missing > 0 && weakest && <> → foque em <b className="text-fg">{weakest.name}</b> (+{fmtK(missing)})</>}
             </p>
           </li>
@@ -118,6 +118,11 @@ function ModeSection({ m, lookup }: { m: ModeAnalysis; lookup: Lookup }) {
           <b className="text-fg">{fmtK(plan.spread)}</b> · Menor margem: <b className="text-fg">{fmtK(plan.minMargin)}</b>
           {r.runePct > 0 && <> · Runas: <b className="text-fg">+{fmtNum(r.runePct)}%</b></>}
         </p>
+        {r.lureCount > 0 && (
+          <p className="mt-2 text-sm text-muted">
+            Em cada rotação, o Pokémon com <b className="text-fg">lure</b> fica em cima e o normal embaixo, na mesma ordem da sua Pokébar.
+          </p>
+        )}
       </Card>
       {plan.teams.map((t, i) => (
         <TeamCard key={i} index={i} total={t.total} required={r.required} members={t.members} lookup={lookup} />
