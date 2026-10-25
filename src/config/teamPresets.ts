@@ -34,6 +34,11 @@ export type TeamPreset = {
   tagline: string;
   description: string;
   tiers: PresetTier[];
+  /**
+   * `true` = este tipo de time tem uma lista de "Pokémon úteis" editável no admin. Com pelo menos 1 Pokémon
+   * na lista, o montador sorteia só entre eles; com a lista vazia, usa todos os Pokémon dos tiers acima.
+   */
+  curated?: boolean;
   /** Pokémon que entram neste tipo de time mesmo fora dos tiers acima (ex.: Shiny Smeargle no time de SR). */
   extras?: PresetExtra[];
   /**
@@ -50,6 +55,7 @@ export const TEAM_PRESETS: TeamPreset[] = [
     label: "Fraco, eficiente e barato",
     tagline: "T2 com 2★ + T1",
     description: "Base de T2 estrelados em 2★ (mais dano que o tier mostra), completando com T1 quando for preciso bater a efetividade.",
+    curated: true,
     tiers: [
       { tier: "T2", priority: 2, stars: 2 },
       { tier: "T1", priority: 1, max: 2 },

@@ -39,4 +39,5 @@ Sem as variáveis de ambiente, o site continua funcionando normalmente com os ar
 - `talent_items` e `pokemon_talent_drops`: itens (agora com imagem, ver `0006_talents.sql`) e quantidades de drops (`quantity` nula = desconhecida).
 - `talents` e `talent_requirements` (`0006_talents.sql`): os talentos de cada categoria e os itens que cada um pede. As imagens ficam no bucket público `talent-items` do Storage.
 - `pokemon_talent_drops` (`0007_pokemon_drops.sql`): agora guarda zona (base/wildscape/primal), quantidade mínima e máxima, chance em % ou "muito raro". Um item por Pokémon em cada zona.
+- `team_pool` (`0008_team_pool.sql`): lista de Pokémon úteis de cada tipo de time do Montador (hoje só o `economico`). Com pelo menos 1 Pokémon na lista, o montador sorteia só entre eles; lista vazia = usa todos os tiers do tipo de time.
 - **Segurança (RLS)**: qualquer visitante lê; só administrador autenticado insere, altera ou remove.

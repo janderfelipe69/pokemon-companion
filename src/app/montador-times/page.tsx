@@ -4,6 +4,7 @@ import { TeamBuilder } from "@/components/team/TeamBuilder";
 import { HUNT_TIERS, TEAM_PRESETS } from "@/config/teamPresets";
 import { buildPokedexEntries } from "@/lib/pokedex";
 import { getCatalog } from "@/lib/supabase/catalog";
+import { getTeamPools } from "@/lib/supabase/teamPool";
 
 export const metadata = { title: "Montador de times | Pokémon Companion" };
 
@@ -12,7 +13,7 @@ export const revalidate = 60;
 
 export default async function Page() {
   // Mesma fonte da Pokédex: o montador só usa Pokémon cadastrados lá.
-  const { pokemon, source } = await getCatalog();
+  const [{ pokemon, source }, pools] = await Promise.all([getCatalog(), getTeamPools()]);
   const tiersInUse = new Set<string>([
     ...HUNT_TIERS,
     ...TEAM_PRESETS.flatMap((p) => [...p.tiers, ...(p.fallback ?? [])].map((t) => t.tier)),
@@ -27,7 +28,7 @@ export default async function Page() {
         description="Escolha o Pokémon que quer caçar e receba times de 6 que batem a efetividade, de acordo com o seu orçamento."
         badge={<Badge tone="teal">{source === "supabase" ? "Banco de dados" : "Lista importada"}</Badge>}
       />
-      <TeamBuilder entries={entries} />
+      <TeamBuilder entries={entries} pools={pools} />
     </>
   );
 }

@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Layers, Medal, Package, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpen, Layers, Medal, Package, PiggyBank, Sparkles, type LucideIcon } from "lucide-react";
 import { ItemsManager } from "./ItemsManager";
 import { MedalsManager } from "./MedalsManager";
 import { PokemonManager } from "./PokemonManager";
 import { TalentsManager } from "./TalentsManager";
+import { TeamPoolManager } from "./TeamPoolManager";
 import { TierPricesManager } from "./TierPricesManager";
 
-type SectionKey = "pokemon" | "tiers" | "medalhas" | "itens" | "talentos";
+type SectionKey = "pokemon" | "tiers" | "medalhas" | "itens" | "talentos" | "times";
 
 const SECTIONS: { key: SectionKey; label: string; description: string; icon: LucideIcon }[] = [
   { key: "pokemon", label: "Pokémon", description: "Cadastro e catálogo do site", icon: BookOpen },
@@ -16,6 +17,7 @@ const SECTIONS: { key: SectionKey; label: string; description: string; icon: Luc
   { key: "medalhas", label: "Medalhas", description: "Buffs, debuffs e % de cada uma", icon: Medal },
   { key: "itens", label: "Itens", description: "Imagens e nomes dos itens", icon: Package },
   { key: "talentos", label: "Talentos", description: "Itens que cada talento pede", icon: Sparkles },
+  { key: "times", label: "Time barato", description: "Pokémon úteis do Montador de times", icon: PiggyBank },
 ];
 
 const isSection = (v: string): v is SectionKey => SECTIONS.some((s) => s.key === v);
@@ -86,6 +88,9 @@ export function AdminPanel() {
       </div>
       <div id="admin-panel-talentos" role="tabpanel" aria-labelledby="admin-tab-talentos" hidden={active !== "talentos"}>
         <TalentsManager itemsVersion={itemsVersion} />
+      </div>
+      <div id="admin-panel-times" role="tabpanel" aria-labelledby="admin-tab-times" hidden={active !== "times"}>
+        <TeamPoolManager />
       </div>
       <div id="admin-panel-pokemon" role="tabpanel" aria-labelledby="admin-tab-pokemon" hidden={active !== "pokemon"}>
         <PokemonManager />

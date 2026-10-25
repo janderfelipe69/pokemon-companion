@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowUp, ChevronDown, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowUp, ChevronDown, RefreshCw, Star } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { HUNT_TIERS, TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
 import { normalize } from "@/lib/pokemonFilters";
@@ -16,7 +16,7 @@ import { WeaknessPanel } from "./WeaknessPanel";
 const STEP = "mb-4 flex items-center gap-3 text-lg font-semibold";
 const stepNumber = "grid size-7 place-items-center rounded-full bg-gold/15 text-sm text-gold";
 
-export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
+export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; /** Lista de Pokémon úteis por tipo de time (IDs). */ pools?: Record<string, string[]> }) {
   const [targetId, setTargetId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<Tier | "">("");
@@ -53,16 +53,20 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
   const target = targets.find((e) => e.pokemon.id === targetId) ?? null;
   const preset = TEAM_PRESETS.find((p) => p.id === presetId) ?? TEAM_PRESETS[0];
 
+  // Lista de Pokémon úteis (editada no admin): só vale para tipos de time "curated" e se tiver ao menos 1 Pokémon.
+  const poolIds = pools[preset.id];
+  const pool = useMemo(() => (preset.curated && poolIds && poolIds.length > 0 ? new Set(poolIds) : undefined), [preset.curated, poolIds]);
+
   // Tipos de ataque que batem o alvo e quantos Pokémon existem de cada um neste tipo de time.
   const typeOptions = useMemo(() => {
     if (!target) return [];
-    const { profile, candidates } = listCandidates(entries, target, preset, includeFallback);
+    const { profile, candidates } = listCandidates(entries, target, preset, includeFallback, pool);
     return monoOptions(candidates, profile);
-  }, [entries, target, preset, includeFallback]);
+  }, [entries, target, preset, includeFallback, pool]);
 
   const build = useMemo(
-    () => (target ? buildTeams(entries, target, preset, { count: 3, round, includeFallback, onlyTypes }) : null),
-    [entries, target, preset, round, includeFallback, onlyTypes],
+    () => (target ? buildTeams(entries, target, preset, { count: 3, round, includeFallback, onlyTypes, pool }) : null),
+    [entries, target, preset, round, includeFallback, onlyTypes, pool],
   );
 
   const pickTarget = (id: string) => {
@@ -143,6 +147,14 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
                 );
               })}
             </div>
+            {pool && (
+              <p className="mt-4 flex items-start gap-2 rounded-lg border border-gold/30 bg-gold/5 p-3 text-sm text-muted">
+                <Star className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
+                <span>
+                  Neste tipo de time, os Pokémon são sorteados só entre os <strong className="font-medium text-fg">{pool.size} da lista de úteis</strong>.
+                </span>
+              </p>
+            )}
             <div className="mt-5 border-t border-line pt-5">
               <TypeRestriction options={typeOptions} mode={typeMode} selected={onlyTypes} onMode={changeMode} onChange={changeTypes} />
             </div>
@@ -176,7 +188,7 @@ export function TeamBuilder({ entries }: { entries: PokedexEntry[] }) {
               <p className="mb-4 flex items-start gap-2 rounded-lg border border-gold/40 bg-gold/5 p-3 text-sm text-muted" role="status">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
                 {best
-                  ? `Só existem ${best.members.length} Pokémon cadastrados que batem a efetividade neste tipo de time. Faltam ${best.missing} para completar os ${TEAM_SIZE}.`
+                  ? `Só existem ${best.members.length} Pokémon ${pool ? "na lista de úteis" : "cadastrados"} que batem a efetividade neste tipo de time. Faltam ${best.missing} para completar os ${TEAM_SIZE}.`
                   : "Nenhum Pokémon cadastrado bate a efetividade contra este alvo neste tipo de time."}
                 {preset.fallback && !includeFallback && " Ative o reforço com tiers abaixo para completar."}
                 {onlyTypes.length > 0 && " Liberar mais tipos (ou voltar para Misto) também ajuda a completar o time."}
