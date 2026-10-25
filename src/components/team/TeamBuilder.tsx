@@ -22,6 +22,7 @@ export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; 
   const [tierFilter, setTierFilter] = useState<Tier | "">("");
   const [presetId, setPresetId] = useState<TeamPreset["id"]>("economico");
   const [includeFallback, setIncludeFallback] = useState(true);
+  const [includeSelf, setIncludeSelf] = useState(true);
   const [typeMode, setTypeMode] = useState<TypeMode>("mixed");
   const [onlyTypes, setOnlyTypes] = useState<PokemonType[]>([]);
   const [round, setRound] = useState(0);
@@ -57,16 +58,19 @@ export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; 
   const poolIds = pools[preset.id];
   const pool = useMemo(() => (preset.curated && poolIds && poolIds.length > 0 ? new Set(poolIds) : undefined), [preset.curated, poolIds]);
 
+  // Quem bate o alvo neste tipo de time, já contando o próprio alvo (ele pode caçar ele mesmo, se acertar a própria fraqueza).
+  const withSelf = useMemo(() => (target ? listCandidates(entries, target, preset, includeFallback, pool, true) : null), [entries, target, preset, includeFallback, pool]);
+  const selfAvailable = !!withSelf?.candidates.some((c) => c.isTarget);
+
   // Tipos de ataque que batem o alvo e quantos Pokémon existem de cada um neste tipo de time.
   const typeOptions = useMemo(() => {
-    if (!target) return [];
-    const { profile, candidates } = listCandidates(entries, target, preset, includeFallback, pool);
-    return monoOptions(candidates, profile);
-  }, [entries, target, preset, includeFallback, pool]);
+    if (!withSelf) return [];
+    return monoOptions(includeSelf ? withSelf.candidates : withSelf.candidates.filter((c) => !c.isTarget), withSelf.profile);
+  }, [withSelf, includeSelf]);
 
   const build = useMemo(
-    () => (target ? buildTeams(entries, target, preset, { count: 3, round, includeFallback, onlyTypes, pool }) : null),
-    [entries, target, preset, round, includeFallback, onlyTypes, pool],
+    () => (target ? buildTeams(entries, target, preset, { count: 3, round, includeFallback, onlyTypes, pool, includeTarget: includeSelf }) : null),
+    [entries, target, preset, round, includeFallback, onlyTypes, pool, includeSelf],
   );
 
   const pickTarget = (id: string) => {
@@ -158,6 +162,14 @@ export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; 
             <div className="mt-5 border-t border-line pt-5">
               <TypeRestriction options={typeOptions} mode={typeMode} selected={onlyTypes} onMode={changeMode} onChange={changeTypes} />
             </div>
+            {selfAvailable && target && (
+              <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-muted">
+                <input type="checkbox" checked={includeSelf} onChange={(e) => { setIncludeSelf(e.target.checked); setRound(0); }} className="mt-1 accent-[var(--color-gold)]" />
+                <span>
+                  Incluir o próprio alvo (<strong className="font-medium text-fg">{target.pokemon.sourceName ?? target.pokemon.name}</strong>) como opção: ele também bate a efetividade, então um que você já tenha pode caçar o que está solto. Aparece marcado no time.
+                </span>
+              </label>
+            )}
             {preset.fallback && (
               <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-muted">
                 <input type="checkbox" checked={includeFallback} onChange={(e) => { setIncludeFallback(e.target.checked); setRound(0); }} className="mt-1 accent-[var(--color-gold)]" />

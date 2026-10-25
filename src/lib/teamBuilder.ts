@@ -22,6 +22,8 @@ export type Candidate = {
   wildcard: boolean;
   /** `true` = entrou por regra especial do tipo de time (fora dos tiers dele). */
   isExtra: boolean;
+  /** `true` = é o próprio alvo da caça: o Pokémon que você já tem caça o que está solto no mapa. */
+  isTarget: boolean;
 };
 
 export type TeamResult = {
@@ -50,6 +52,8 @@ export type BuildOptions = {
   onlyTypes?: PokemonType[];
   /** Lista de Pokémon úteis (IDs). Com pelo menos 1, só eles podem entrar no time. Vazia ou ausente = sem restrição. */
   pool?: ReadonlySet<string>;
+  /** Permite o próprio alvo como membro do time (ele caça ele mesmo). Só entra se bater a efetividade contra si mesmo. */
+  includeTarget?: boolean;
 };
 
 /** Identifica a espécie sem a variante, para não repetir o mesmo Pokémon (normal, Shiny, Mega) no time. */
@@ -75,6 +79,7 @@ export function listCandidates(
   preset: TeamPreset,
   includeFallback = true,
   pool?: ReadonlySet<string>,
+  includeTarget = false,
 ): { profile: WeaknessProfile; candidates: Candidate[] } {
   const onlyPool = pool && pool.size > 0 ? pool : null;
   const defenders = target.originalTypes ?? [];
@@ -87,7 +92,8 @@ export function listCandidates(
 
   for (const entry of entries) {
     const { pokemon: p } = entry;
-    if (p.id === target.pokemon.id || seen.has(p.id)) continue;
+    const isTarget = p.id === target.pokemon.id;
+    if ((isTarget && !includeTarget) || seen.has(p.id)) continue;
     if (onlyPool && !onlyPool.has(p.id)) continue; // fora da lista de úteis
 
     const extra = extras.get(p.id);
@@ -119,6 +125,7 @@ export function listCandidates(
       priority: rule.priority,
       wildcard,
       isExtra: !!extra,
+      isTarget,
     });
   }
   return { profile, candidates };
@@ -212,8 +219,8 @@ const signature = (t: TeamResult) => t.members.map((m) => m.entry.pokemon.id + "
  * as demais variam a escolha entre Pokémon equivalentes. `round` gera um novo lote.
  */
 export function buildTeams(entries: PokedexEntry[], target: PokedexEntry, preset: TeamPreset, options: BuildOptions = {}): TeamBuild {
-  const { count = 3, round = 0, includeFallback = true, onlyTypes = [], pool } = options;
-  const { profile, candidates: all } = listCandidates(entries, target, preset, includeFallback, pool);
+  const { count = 3, round = 0, includeFallback = true, onlyTypes = [], pool, includeTarget = false } = options;
+  const { profile, candidates: all } = listCandidates(entries, target, preset, includeFallback, pool, includeTarget);
 
   // Tipos permitidos que realmente batem o alvo (do melhor nível para o pior). Sem restrição = todos que batem.
   const restricted = onlyTypes.length > 0;
