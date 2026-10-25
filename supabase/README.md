@@ -40,4 +40,5 @@ Sem as variáveis de ambiente, o site continua funcionando normalmente com os ar
 - `talents` e `talent_requirements` (`0006_talents.sql`): os talentos de cada categoria e os itens que cada um pede. As imagens ficam no bucket público `talent-items` do Storage.
 - `pokemon_talent_drops` (`0007_pokemon_drops.sql`): agora guarda zona (base/wildscape/primal), quantidade mínima e máxima, chance em % ou "muito raro". Um item por Pokémon em cada zona.
 - `team_pool` (`0008_team_pool.sql`): lista de Pokémon úteis de cada tipo de time do Montador (hoje só o `economico`). Com pelo menos 1 Pokémon na lista, o montador sorteia só entre eles; lista vazia = usa todos os tiers do tipo de time.
+- `guild_members` e `guild_boost_wants` (`0009_guild_boosts.sql`): nicks dos membros da guilda e os tipos de stone que cada um quer receber (botão flutuante Guilda). Já vêm com os membros do JSON da guilda e as escolhas da lista manual. Senha dos membros: `1`, ou o valor da variável `GUILD_MEMBER_PASSWORD` se você criar na Vercel.
 - **Segurança (RLS)**: qualquer visitante lê; só administrador autenticado insere, altera ou remove.

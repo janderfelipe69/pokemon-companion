@@ -1,0 +1,39 @@
+/** Uma linha do log de drops: "3 Advanced Fire Stones. You can boost ... +26 and +30 boosts ... (12%)". */
+export type Stone = { qty: number; tier: string; type: string; typeKey: string; min: number; max: number; chance: number };
+
+export type PersonWants = { name: string; types: string[] };
+export type TypeGroup = { type: string; typeKey: string; stones: Stone[]; names: string[] };
+
+// Mesmo padrão do organizador antigo (HTML), só aceitando também chance com casas decimais ("12,5%").
+const STONE_RE = /(\d+)\s+([A-Za-z]+)\s+([A-Za-z]+)\s+Stones?\.?\s*You can boost[^+]*\+(\d+)\s+and\s+\+(\d+)\s+boosts[^(]*\((\d+(?:[.,]\d+)?)%/gi;
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+
+/** Lê o log colado e devolve as stones, as mais fortes primeiro. */
+export function parseStones(text: string): Stone[] {
+  const out: Stone[] = [];
+  for (const m of text.matchAll(STONE_RE)) {
+    const type = capitalize(m[3]);
+    out.push({ qty: Number(m[1]), tier: capitalize(m[2]), type, typeKey: type.toLowerCase(), min: Number(m[4]), max: Number(m[5]), chance: Number(m[6].replace(",", ".")) });
+  }
+  return out.sort((a, b) => b.min - a.min);
+}
+
+/** Agrupa por tipo e junta os nomes de quem quer cada um. Tipos com mais interessados primeiro. */
+export function groupByType(stones: Stone[], people: readonly PersonWants[]): TypeGroup[] {
+  const groups = new Map<string, TypeGroup>();
+  for (const stone of stones) {
+    const group = groups.get(stone.typeKey) ?? { type: stone.type, typeKey: stone.typeKey, stones: [], names: [] };
+    group.stones.push(stone);
+    groups.set(stone.typeKey, group);
+  }
+  for (const group of groups.values()) group.names = people.filter((p) => p.types.includes(group.typeKey)).map((p) => p.name);
+  return [...groups.values()].sort((a, b) => b.names.length - a.names.length || a.type.localeCompare(b.type));
+}
+
+const stoneLine = (s: Stone) => `  ${s.qty}x ${s.tier} | +${s.min}~+${s.max} | ${s.chance}%`;
+
+/** Resumo em texto para copiar e colar no chat da guilda. */
+export function summaryText(groups: readonly TypeGroup[]): string {
+  return groups.map((g) => `${g.type.toUpperCase()}\n${g.stones.map(stoneLine).join("\n")}\n  Precisam: ${g.names.join(", ") || "ninguém"}`).join("\n\n");
+}

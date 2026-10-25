@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Layers, Medal, Package, PiggyBank, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpen, Layers, Medal, Package, PiggyBank, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { GuildMembersManager } from "./GuildMembersManager";
 import { ItemsManager } from "./ItemsManager";
 import { MedalsManager } from "./MedalsManager";
 import { PokemonManager } from "./PokemonManager";
@@ -9,7 +10,7 @@ import { TalentsManager } from "./TalentsManager";
 import { TeamPoolManager } from "./TeamPoolManager";
 import { TierPricesManager } from "./TierPricesManager";
 
-type SectionKey = "pokemon" | "tiers" | "medalhas" | "itens" | "talentos" | "times";
+type SectionKey = "pokemon" | "tiers" | "medalhas" | "itens" | "talentos" | "times" | "membros";
 
 const SECTIONS: { key: SectionKey; label: string; description: string; icon: LucideIcon }[] = [
   { key: "pokemon", label: "Pokémon", description: "Cadastro e catálogo do site", icon: BookOpen },
@@ -18,6 +19,7 @@ const SECTIONS: { key: SectionKey; label: string; description: string; icon: Luc
   { key: "itens", label: "Itens", description: "Imagens e nomes dos itens", icon: Package },
   { key: "talentos", label: "Talentos", description: "Itens que cada talento pede", icon: Sparkles },
   { key: "times", label: "Time barato", description: "Pokémon úteis do Montador de times", icon: PiggyBank },
+  { key: "membros", label: "Membros da guilda", description: "Quem escolhe boosts no botão Guilda", icon: Users },
 ];
 
 const isSection = (v: string): v is SectionKey => SECTIONS.some((s) => s.key === v);
@@ -91,6 +93,9 @@ export function AdminPanel() {
       </div>
       <div id="admin-panel-times" role="tabpanel" aria-labelledby="admin-tab-times" hidden={active !== "times"}>
         <TeamPoolManager />
+      </div>
+      <div id="admin-panel-membros" role="tabpanel" aria-labelledby="admin-tab-membros" hidden={active !== "membros"}>
+        <GuildMembersManager />
       </div>
       <div id="admin-panel-pokemon" role="tabpanel" aria-labelledby="admin-tab-pokemon" hidden={active !== "pokemon"}>
         <PokemonManager />

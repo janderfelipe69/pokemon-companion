@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { GuildFab } from "@/components/guild/GuildFab";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 
@@ -52,6 +53,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Header onOpenMenu={() => setOpen(true)} />
         <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">{children}</main>
       </div>
+
+      <GuildFab />
     </div>
   );
 }
