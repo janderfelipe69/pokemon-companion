@@ -1,4 +1,4 @@
-import { Gem, Package, Users, type LucideIcon } from "lucide-react";
+import { Gem, Package, Target, Users, type LucideIcon } from "lucide-react";
 import { HomeShortcut } from "@/components/home/HomeShortcut";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { NavItem } from "@/config/navigation";
@@ -21,6 +21,12 @@ const sections = [
     hint: "Monte time com o pessoal da guilda",
     accent: "teal" as const,
     items: [item("/guilda/clones", "Times de clones", "Procure ou entre em um time de 4 (Easy, Medium e Hard)", Users)],
+  },
+  {
+    title: "Projetos",
+    hint: "Acompanhe o que a guilda está farmando",
+    accent: "gold" as const,
+    items: [item("/guilda/projetos", "Projetos de balls", "Cole os dados, gere a imagem e mantenha a guilda atualizada", Target)],
   },
 ];
 
