@@ -64,4 +64,30 @@ export function parseWants(list: unknown): BoostWant[] | null {
 export const sameWants = (a: readonly BoostWant[], b: readonly BoostWant[]) =>
   a.length === b.length && a.every((w, i) => w.type === b[i].type && w.tiers.length === b[i].tiers.length && w.tiers.every((t, j) => t === b[i].tiers[j]));
 
+/** Um drop publicado vale este tempo e depois some sozinho. */
+export const DROP_TTL_HOURS = 24;
+export const MAX_STONE_QTY = 999;
+
+/** Uma stone que o membro tem para a rodada: "2x Advanced Fire". */
+export type DropStone = { type: PokemonType; tier: StoneTierKey; qty: number };
+
+/** Ordem do jogo: tipos na ordem de sempre e, dentro do tipo, do nível mais fraco ao mais forte. */
+export function sortDrops(list: readonly DropStone[]): DropStone[] {
+  const order = (d: DropStone) => BOOST_TYPES.indexOf(d.type) * 10 + TIER_KEYS.indexOf(d.tier);
+  return list.map(({ type, tier, qty }) => ({ type, tier, qty })).sort((a, b) => order(a) - order(b));
+}
+
+/** Valida os drops enviados ao servidor: `null` se qualquer item for inválido ou repetido. */
+export function parseDrops(list: unknown): DropStone[] | null {
+  if (!Array.isArray(list) || list.length > BOOST_TYPES.length * TIER_KEYS.length) return null;
+  const seen = new Set<string>();
+  for (const item of list) {
+    const { type, tier, qty } = (item ?? {}) as { type?: unknown; tier?: unknown; qty?: unknown };
+    if (!isBoostType(type) || !isTierKey(tier) || !Number.isInteger(qty) || (qty as number) < 1 || (qty as number) > MAX_STONE_QTY) return null;
+    if (seen.has(`${type}:${tier}`)) return null;
+    seen.add(`${type}:${tier}`);
+  }
+  return sortDrops(list as DropStone[]);
+}
+
 export const MAX_NICK_LENGTH = 40;

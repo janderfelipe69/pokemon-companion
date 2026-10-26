@@ -1,4 +1,4 @@
-import { isTierKey, type BoostWant } from "@/config/guildBoost";
+import { isBoostType, isTierKey, MAX_STONE_QTY, sortDrops, type BoostWant, type DropStone } from "@/config/guildBoost";
 
 /** Uma linha do log de drops: "3 Advanced Fire Stones. You can boost ... +26 and +30 boosts ... (12%)". */
 export type Stone = { qty: number; tier: string; type: string; typeKey: string; min: number; max: number; chance: number };
@@ -48,4 +48,22 @@ const stoneLine = (s: StoneWithNames) => `  ${s.qty}x ${s.tier} | +${s.min}~+${s
 /** Resumo em texto para copiar e colar no chat da guilda. */
 export function summaryText(groups: readonly TypeGroup[]): string {
   return groups.map((g) => `${g.type.toUpperCase()}\n${g.stones.map(stoneLine).join("\n")}`).join("\n\n");
+}
+
+/** Transforma as stones do log nos drops que vão ser publicados (soma linhas repetidas). `skipped` = linhas com tipo/nível desconhecido. */
+export function stonesToDrops(stones: readonly Stone[]): { drops: DropStone[]; skipped: number } {
+  const sums = new Map<string, DropStone>();
+  let skipped = 0;
+  for (const stone of stones) {
+    const tier = stone.tier.toLowerCase();
+    if (!isBoostType(stone.typeKey) || !isTierKey(tier)) {
+      skipped++;
+      continue;
+    }
+    const key = `${stone.typeKey}:${tier}`;
+    const current = sums.get(key) ?? { type: stone.typeKey, tier, qty: 0 };
+    current.qty = Math.min(MAX_STONE_QTY, current.qty + stone.qty);
+    sums.set(key, current);
+  }
+  return { drops: sortDrops([...sums.values()]), skipped };
 }

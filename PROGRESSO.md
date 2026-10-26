@@ -291,3 +291,9 @@ Modificados: `src/types/pokemon.ts`, `src/lib/supabase/catalog.ts`, `src/lib/pok
 - Banco: `supabase/migrations/0010_guild_boost_tiers.sql` (coluna `tiers` + função `save_guild_tier_wants`). Rodar no SQL Editor **antes** de publicar o código novo.
 - A API agora usa `{ wants: [{ type, tiers }] }` no lugar de `{ types: [] }` (`/api/guild/wants`, `/api/guild/session`, `/api/guild/overview`, `/api/admin/guild-members`).
 - Editor de membro do admin usa o mesmo seletor.
+
+## Boosts da guilda: plano de trocas
+- Em **Drops do boss**, quem está logado cola o log e clica em **Publicar meus drops**. O drop vale **24h** e some sozinho; publicar de novo substitui o anterior; dá para **retirar meu drop**.
+- O site monta o **Plano de trocas** só com quem publicou (quem não publicou fica de fora): cada pessoa vê o que **recebe**, o que **entrega** (e para quem) e o que **fica com ela**. Não precisa confirmar nada; o plano se atualiza sozinho a cada 30s e no botão de atualizar.
+- Regras (`src/lib/guild/boostTrades.ts`, função `planTrades`): 1) quem dropou o que quer, fica; 2) o resto vai para quem quer aquele tipo e nível, sempre para quem está com menos stones; 3) as mais fortes são distribuídas primeiro; o que ninguém quer aparece em **Sobrou**. O resultado é igual para todo mundo.
+- Banco: `supabase/migrations/0011_guild_boost_drops.sql` (tabela `guild_boost_drops` + função `publish_guild_drops`). Rodar no SQL Editor antes de publicar o código. API nova: `/api/guild/drops` (GET público, PUT/DELETE só de quem está logado).

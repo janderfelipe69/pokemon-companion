@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, LogOut } from "lucide-react";
 import { normalizeWants, sameWants, STONE_TIERS, type BoostWant } from "@/config/guildBoost";
 import { BoostTypePicker } from "./BoostTypePicker";
-import { StoneLog } from "./StoneLog";
+import { StoneLog, type DropPost } from "./StoneLog";
 
 type Person = { name: string; wants: BoostWant[] };
 type Tab = "boosts" | "drops";
@@ -30,19 +30,26 @@ export function GuildPanel() {
   const [people, setPeople] = useState<Person[] | null>(null);
   const [peopleError, setPeopleError] = useState("");
   const [peopleLoading, setPeopleLoading] = useState(true);
+  const [posts, setPosts] = useState<DropPost[]>([]);
 
-  const loadPeople = useCallback(async () => {
-    setPeopleLoading(true);
-    setPeopleError("");
+  /** Recarrega a guilda e os drops publicados. `silent` = atualização automática, sem piscar "carregando". */
+  const loadPeople = useCallback(async (silent = false) => {
+    if (!silent) {
+      setPeopleLoading(true);
+      setPeopleError("");
+    }
     try {
-      const response = await fetch("/api/guild/overview", { cache: "no-store" });
-      const data = await readJson(response);
-      if (!response.ok) throw new Error(String(data.error || "Não foi possível carregar a guilda."));
-      setPeople((data.people as Person[]).map((p) => ({ ...p, wants: normalizeWants(p.wants) })));
+      const [overview, drops] = await Promise.all([fetch("/api/guild/overview", { cache: "no-store" }), fetch("/api/guild/drops", { cache: "no-store" })]);
+      const [overviewData, dropsData] = await Promise.all([readJson(overview), readJson(drops)]);
+      if (!overview.ok) throw new Error(String(overviewData.error || "Não foi possível carregar a guilda."));
+      if (!drops.ok) throw new Error(String(dropsData.error || "Não foi possível carregar os drops publicados."));
+      setPeople((overviewData.people as Person[]).map((p) => ({ ...p, wants: normalizeWants(p.wants) })));
+      setPosts(dropsData.posts as DropPost[]);
+      setPeopleError("");
     } catch (e) {
-      setPeopleError(e instanceof Error ? e.message : "Erro ao carregar a guilda.");
+      if (!silent) setPeopleError(e instanceof Error ? e.message : "Erro ao carregar a guilda.");
     } finally {
-      setPeopleLoading(false);
+      if (!silent) setPeopleLoading(false);
     }
   }, []);
 
@@ -76,6 +83,13 @@ export function GuildPanel() {
   // A aba de drops sempre mostra os nicks e escolhas mais recentes.
   useEffect(() => {
     if (tab === "drops") void loadPeople();
+  }, [tab, loadPeople]);
+
+  // Com a aba de drops aberta, o plano se atualiza sozinho conforme o pessoal publica.
+  useEffect(() => {
+    if (tab !== "drops") return;
+    const id = window.setInterval(() => void loadPeople(true), 30_000);
+    return () => window.clearInterval(id);
   }, [tab, loadPeople]);
 
   async function login(event: FormEvent) {
@@ -250,7 +264,17 @@ export function GuildPanel() {
           </>
         )}
 
-        {tab === "drops" && <StoneLog people={people} loading={peopleLoading} error={peopleError} />}
+        {tab === "drops" && (
+          <StoneLog
+            people={people}
+            posts={posts}
+            loading={peopleLoading}
+            error={peopleError}
+            me={session.status === "in" ? session.name : null}
+            onChanged={() => void loadPeople(true)}
+            onSessionLost={() => setSession({ status: "out" })}
+          />
+        )}
       </div>
     </div>
   );
