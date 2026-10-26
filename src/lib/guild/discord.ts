@@ -7,7 +7,7 @@ import { typeInfo } from "@/config/pokemonTypes";
 import type { PokemonType } from "@/types/pokemon";
 import { planTrades, type LeftoverStone, type PersonPlan, type TradePlan, type Transfer } from "./boostTrades";
 
-const WEBHOOK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+export const WEBHOOK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 const BOT_NAME = "Boosts da Guilda";
 const MAX_MESSAGES = 6;
 
@@ -20,7 +20,7 @@ const webhookUrl = (): string | null => {
 export const isDiscordConfigured = () => webhookUrl() !== null;
 
 /** Endereço público do site, para o link na mensagem (a Vercel fornece o domínio de produção sozinha). */
-function siteUrl(): string | null {
+export function siteUrl(): string | null {
   const explicit = process.env.SITE_URL?.trim();
   if (explicit) return explicit;
   const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
@@ -35,7 +35,7 @@ const CHUNK_LIMIT = 3500; // cada mensagem pode ter até 6000 caracteres somando
 const LEFTOVER_LIMIT = 1700;
 
 /** Nick vira texto simples: sem negrito/itálico acidental. (Menções já são bloqueadas por `allowed_mentions`.) */
-const esc = (text: string) => text.replace(/([\\*_~`|>])/g, "\\$1");
+export const esc = (text: string) => text.replace(/([\\*_~`|>])/g, "\\$1");
 
 const TYPE_EMOJI: Record<PokemonType, string> = {
   normal: "⚪", fire: "🔥", water: "💧", electric: "⚡", grass: "🌿", ice: "❄️", fighting: "🥊", poison: "☠️", ground: "⛰️",
@@ -151,7 +151,7 @@ export function buildMessages(plan: TradePlan, updatedAt: Date): object[][] {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Chama o webhook; se o Discord pedir para esperar (429), espera um pouco e tenta mais uma vez. */
-async function hook(url: string, method: "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<Response> {
+export async function hook(url: string, method: "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<Response> {
   const attempt = () => fetch(`${url}${path}`, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(8000) });
   let response = await attempt();
   if (response.status === 429) {
@@ -163,8 +163,8 @@ async function hook(url: string, method: "POST" | "PATCH" | "DELETE", path: stri
   return response;
 }
 
-async function postMessage(url: string, embeds: object[]): Promise<string> {
-  const response = await hook(url, "POST", "?wait=true", { username: BOT_NAME, embeds, allowed_mentions: { parse: [] } });
+export async function postMessage(url: string, embeds: object[], username: string = BOT_NAME): Promise<string> {
+  const response = await hook(url, "POST", "?wait=true", { username, embeds, allowed_mentions: { parse: [] } });
   if (!response.ok) throw new Error(`Discord recusou a mensagem (${response.status}).`);
   const data = (await response.json().catch(() => ({}))) as { id?: string };
   if (!data.id) throw new Error("O Discord não devolveu o id da mensagem.");
@@ -172,7 +172,7 @@ async function postMessage(url: string, embeds: object[]): Promise<string> {
 }
 
 /** Edita uma mensagem; devolve `false` se ela não existe mais (alguém apagou no Discord). */
-async function editMessage(url: string, id: string, embeds: object[]): Promise<boolean> {
+export async function editMessage(url: string, id: string, embeds: object[]): Promise<boolean> {
   const response = await hook(url, "PATCH", `/messages/${id}`, { embeds, allowed_mentions: { parse: [] } });
   if (response.status === 404) return false;
   if (!response.ok) throw new Error(`Discord recusou a edição (${response.status}).`);

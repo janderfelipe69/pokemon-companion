@@ -4,6 +4,7 @@ import { GuildDataError, listDrops, listMembers, publishDrops } from "@/lib/guil
 import { roundEnd } from "@/lib/guild/boostRound";
 import { getMemberSessionId } from "@/lib/guild/boostSession";
 import { isDiscordConfigured, syncDiscordPlan } from "@/lib/guild/discord";
+import { getCurrentMember } from "@/lib/guild/currentMember";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ const failData = (e: unknown) => (e instanceof GuildDataError ? fail(e.message, 
 /** Quem publicou drop nesta rodada (até as 3h da manhã) e o que cada um tem. É o que alimenta o plano de trocas. */
 export async function GET() {
   try {
+    if (!(await getCurrentMember())) return fail("Entre com o seu nick primeiro.", 401);
     const [members, drops] = await Promise.all([listMembers(), listDrops()]);
     const names = new Map(members.map((m) => [m.id, m.name]));
     const posts = drops

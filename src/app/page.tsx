@@ -14,7 +14,7 @@ const groups: { title: string; hint: string; accent: Accent; hrefs: string[] }[]
     title: "Ferramentas da guilda",
     hint: "Para planejar e acompanhar",
     accent: "teal",
-    hrefs: ["/montador-times", "/teste-de-dano", "/pokelog"],
+    hrefs: ["/guilda", "/montador-times", "/teste-de-dano", "/pokelog"],
   },
 ];
 

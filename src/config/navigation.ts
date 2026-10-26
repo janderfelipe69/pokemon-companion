@@ -8,6 +8,7 @@ import {
   Swords,
   Gauge,
   Trophy,
+  Gem,
   Medal,
   ShieldCheck,
   type LucideIcon,
@@ -32,7 +33,8 @@ export const mainNav: NavItem[] = [
   { href: "/rotas-farm", label: "Rotas de farm", description: "Sugestões de locais para farmar", icon: Map },
   { href: "/montador-times", label: "Montador de times", description: "Monte e compare seus times", icon: Swords },
   { href: "/teste-de-dano", label: "Teste de dano", description: "Divida a rotação e veja até que hazard vai", icon: Gauge },
-  { href: "/guilda", label: "Guilda", description: "Progresso semanal da guilda em imagem", icon: Trophy, adminOnly: true },
+  { href: "/guilda", label: "Guilda", description: "Boosts, trocas e times de clones (só para membros)", icon: Gem },
+  { href: "/quadro-guilda", label: "Quadro da guilda", description: "Progresso semanal da guilda em imagem", icon: Trophy, adminOnly: true },
 ];
 
 export const adminNav: NavItem = {

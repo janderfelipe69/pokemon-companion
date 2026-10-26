@@ -136,7 +136,7 @@ export function GuildBoard({ current, previous, currentFile, files, canSave }: P
         return;
       }
       setLocal(null);
-      router.push(`/guilda?arquivo=${encodeURIComponent(result.file)}`);
+      router.push(`/quadro-guilda?arquivo=${encodeURIComponent(result.file)}`);
       router.refresh();
     } catch {
       setMessage({ tone: "error", text: "Falha de conexão. Tente de novo." });
@@ -159,7 +159,7 @@ export function GuildBoard({ current, previous, currentFile, files, canSave }: P
               onChange={(e) => {
                 setLocal(null);
                 setMessage(null);
-                router.push(`/guilda?arquivo=${encodeURIComponent(e.target.value)}`);
+                router.push(`/quadro-guilda?arquivo=${encodeURIComponent(e.target.value)}`);
               }}
               className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm text-fg"
             >
