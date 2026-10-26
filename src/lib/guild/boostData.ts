@@ -1,6 +1,7 @@
 import "server-only";
 import { DROP_TTL_HOURS, normalizeWants, sortDrops, type BoostWant, type DropStone } from "@/config/guildBoost";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isRoundActive } from "./boostRound";
 
 export type GuildMember = { id: number; name: string };
 
@@ -42,7 +43,7 @@ export async function saveWants(memberId: number, wants: BoostWant[]): Promise<v
 
 export type DropPost = { memberId: number; postedAt: string; stones: DropStone[] };
 
-/** Drops publicados nas últimas 24h, um por membro. O que passou do prazo nem é lido (e é apagado na próxima publicação). */
+/** Drops da rodada atual, um por membro. O que passou das 3h da manhã não aparece mais (e o banco apaga na próxima publicação). */
 export async function listDrops(): Promise<DropPost[]> {
   const cutoff = new Date(Date.now() - DROP_TTL_HOURS * 3600_000).toISOString();
   const { data, error } = await createAdminClient().from("guild_boost_drops").select("member_id, type, tier, qty, posted_at").gte("posted_at", cutoff);
@@ -54,7 +55,7 @@ export async function listDrops(): Promise<DropPost[]> {
     if (row.posted_at < post.postedAt) post.postedAt = row.posted_at;
     posts.set(row.member_id, post);
   }
-  return [...posts].map(([memberId, post]) => ({ memberId, postedAt: post.postedAt, stones: sortDrops(post.stones) }));
+  return [...posts].filter(([, post]) => isRoundActive(new Date(post.postedAt))).map(([memberId, post]) => ({ memberId, postedAt: post.postedAt, stones: sortDrops(post.stones) }));
 }
 
 /** Troca tudo que o membro tinha publicado pela lista enviada (vazia = retira). A lista precisa vir de `parseDrops`. */

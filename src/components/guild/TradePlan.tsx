@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowLeft, ArrowRight, Hand } from "lucide-react";
 import { TypeIcon } from "@/components/pokedex/TypeIcon";
 import { STONE_TIERS, type StoneTierKey } from "@/config/guildBoost";
 import { typeInfo } from "@/config/pokemonTypes";
-import type { LeftoverStone, PersonPlan, Transfer, TradePlan as Plan } from "@/lib/guild/boostTrades";
+import { personText, type LeftoverStone, type PersonPlan, type Transfer, type TradePlan as Plan } from "@/lib/guild/boostTrades";
 import type { PokemonType } from "@/types/pokemon";
 
 /** Uma stone com ícone do tipo e a cor dele: "2x Advanced Fire". */
@@ -51,6 +52,18 @@ function hoursLeft(expiresAt: string): string {
 
 function PersonCard({ person, mine, expiresAt, onRetract, busy }: { person: PersonPlan; mine: boolean; expiresAt?: string; onRetract?: () => void; busy: boolean }) {
   const empty = person.keeps.length === 0 && person.gives.length === 0 && person.gets.length === 0;
+  const [copyLabel, setCopyLabel] = useState("copiar meu plano");
+
+  async function copyMine() {
+    try {
+      await navigator.clipboard.writeText(personText(person));
+      setCopyLabel("copiado!");
+    } catch {
+      setCopyLabel("não foi possível copiar");
+    }
+    setTimeout(() => setCopyLabel("copiar meu plano"), 1800);
+  }
+
   return (
     <li className={`rounded-xl border p-3 ${mine ? "border-gold/60 bg-gold/5" : "border-line bg-black/20"}`}>
       <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -61,6 +74,11 @@ function PersonCard({ person, mine, expiresAt, onRetract, busy }: { person: Pers
         </span>
         <span className="flex-1" />
         {expiresAt && <span className="text-xs text-muted">{hoursLeft(expiresAt)}</span>}
+        {mine && !empty && (
+          <button type="button" onClick={() => void copyMine()} className="text-xs text-muted underline-offset-2 hover:text-fg hover:underline">
+            {copyLabel}
+          </button>
+        )}
         {mine && onRetract && (
           <button type="button" onClick={onRetract} disabled={busy} className="text-xs text-muted underline-offset-2 hover:text-fg hover:underline disabled:opacity-40">
             retirar meu drop

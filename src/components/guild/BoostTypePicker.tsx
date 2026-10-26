@@ -37,8 +37,9 @@ export function BoostTypePicker({ value, onChange, disabled = false }: { value: 
   const applyToAll = (tiers: StoneTierKey[]) => onChange(value.map((w) => ({ type: w.type, tiers })));
 
   return (
-    <div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="@container">
+      <div className="grid gap-5 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] @3xl:gap-6">
+      <div className="grid grid-cols-2 content-start gap-2 @xl:grid-cols-3 @3xl:grid-cols-2">
         {BOOST_TYPES.map((type) => {
           const on = byType.has(type);
           const { label, color } = typeInfo[type];
@@ -62,8 +63,14 @@ export function BoostTypePicker({ value, onChange, disabled = false }: { value: 
         })}
       </div>
 
+      {value.length === 0 && (
+        <p className="hidden items-center justify-center rounded-xl border border-dashed border-line p-6 text-center text-sm text-muted @3xl:flex">
+          Marque um tipo ao lado para escolher quais níveis de stone você quer receber.
+        </p>
+      )}
+
       {value.length > 0 && (
-        <div className="mt-5">
+        <div className="@3xl:max-h-[60vh] @3xl:overflow-y-auto @3xl:pr-1">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <h3 className="text-sm font-semibold">Quais boosts de cada tipo?</h3>
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Aplicar a todos os tipos escolhidos">
@@ -121,6 +128,7 @@ export function BoostTypePicker({ value, onChange, disabled = false }: { value: 
           </ul>
         </div>
       )}
+      </div>
     </div>
   );
 }

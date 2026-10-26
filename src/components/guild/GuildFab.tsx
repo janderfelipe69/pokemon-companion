@@ -26,7 +26,7 @@ export function GuildFab() {
         <Gem className="size-5" aria-hidden />
         <span className="hidden sm:inline">Guilda</span>
       </button>
-      <Dialog open={open} onClose={close} title="Boosts da guilda">
+      <Dialog open={open} onClose={close} title="Boosts da guilda" size="wide">
         <GuildPanel />
       </Dialog>
     </>

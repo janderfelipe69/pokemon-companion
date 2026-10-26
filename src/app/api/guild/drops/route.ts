@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
-import { DROP_TTL_HOURS, parseDrops } from "@/config/guildBoost";
+import { after, NextResponse } from "next/server";
+import { parseDrops } from "@/config/guildBoost";
 import { GuildDataError, listDrops, listMembers, publishDrops } from "@/lib/guild/boostData";
+import { roundEnd } from "@/lib/guild/boostRound";
 import { getMemberSessionId } from "@/lib/guild/boostSession";
+import { isDiscordConfigured, syncDiscordPlan } from "@/lib/guild/discord";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +12,7 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 const fail = (error: string, status = 400) => json({ error }, status);
 const failData = (e: unknown) => (e instanceof GuildDataError ? fail(e.message, (e as { code?: string }).code === "23503" ? 401 : 500) : fail("Erro interno ao consultar os drops.", 500));
 
-/** Quem publicou drop nas últimas 24h e o que cada um tem. É o que alimenta o plano de trocas. */
+/** Quem publicou drop nesta rodada (até as 3h da manhã) e o que cada um tem. É o que alimenta o plano de trocas. */
 export async function GET() {
   try {
     const [members, drops] = await Promise.all([listMembers(), listDrops()]);
@@ -20,11 +22,11 @@ export async function GET() {
       .map((d) => ({
         name: names.get(d.memberId)!,
         postedAt: d.postedAt,
-        expiresAt: new Date(new Date(d.postedAt).getTime() + DROP_TTL_HOURS * 3600_000).toISOString(),
+        expiresAt: roundEnd(new Date(d.postedAt)).toISOString(),
         stones: d.stones,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    return json({ posts });
+    return json({ posts, discord: isDiscordConfigured() });
   } catch (e) {
     return failData(e);
   }
@@ -47,6 +49,7 @@ export async function PUT(request: Request) {
     if (!stones || stones.length === 0) return fail("Lista de stones inválida.");
 
     await publishDrops(id, stones);
+    after(() => syncDiscordPlan()); // avisa o Discord depois de responder; se falhar, a publicação já está salva
     return json({ ok: true });
   } catch (e) {
     return failData(e);
@@ -59,6 +62,7 @@ export async function DELETE() {
     const id = await currentMemberId();
     if (!id) return fail("Entre com o seu nick primeiro.", 401);
     await publishDrops(id, []);
+    after(() => syncDiscordPlan());
     return json({ ok: true });
   } catch (e) {
     return failData(e);

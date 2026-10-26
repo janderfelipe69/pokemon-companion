@@ -97,3 +97,17 @@ export function planText(plan: TradePlan): string {
   const rest = plan.leftover.length > 0 ? `\n\nSobrou (ninguém quer): ${plan.leftover.map((l) => `${stoneLabel(l)} de ${l.owner}`).join(", ")}` : "";
   return lines.join("\n\n") + rest;
 }
+
+/** Só a parte de uma pessoa, para ela copiar e mandar no privado. */
+export function personText(person: PersonPlan): string {
+  const group = (list: readonly Transfer[], side: "to" | "from") => {
+    const names = [...new Set(list.map((t) => t[side]))];
+    return names.map((n) => `  ${side === "to" ? "→" : "←"} ${n}: ${list.filter((t) => t[side] === n).map(stoneLabel).join(", ")}`);
+  };
+  const lines = [`Plano de ${person.name}:`];
+  if (person.gets.length > 0) lines.push("Recebo:", ...group(person.gets, "from"));
+  if (person.gives.length > 0) lines.push("Entrego:", ...group(person.gives, "to"));
+  if (person.keeps.length > 0) lines.push(`Fico com: ${person.keeps.map(stoneLabel).join(", ")}`);
+  if (lines.length === 1) lines.push("Nada a trocar por enquanto.");
+  return lines.join("\n");
+}

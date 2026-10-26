@@ -31,6 +31,7 @@ export function GuildPanel() {
   const [peopleError, setPeopleError] = useState("");
   const [peopleLoading, setPeopleLoading] = useState(true);
   const [posts, setPosts] = useState<DropPost[]>([]);
+  const [discord, setDiscord] = useState(false);
 
   /** Recarrega a guilda e os drops publicados. `silent` = atualização automática, sem piscar "carregando". */
   const loadPeople = useCallback(async (silent = false) => {
@@ -45,6 +46,7 @@ export function GuildPanel() {
       if (!drops.ok) throw new Error(String(dropsData.error || "Não foi possível carregar os drops publicados."));
       setPeople((overviewData.people as Person[]).map((p) => ({ ...p, wants: normalizeWants(p.wants) })));
       setPosts(dropsData.posts as DropPost[]);
+      setDiscord(dropsData.discord === true);
       setPeopleError("");
     } catch (e) {
       if (!silent) setPeopleError(e instanceof Error ? e.message : "Erro ao carregar a guilda.");
@@ -182,7 +184,7 @@ export function GuildPanel() {
             {session.status === "loading" && <p className="text-sm text-muted">Carregando...</p>}
 
             {session.status === "out" && (
-              <form onSubmit={login} className="max-w-sm space-y-3">
+              <form onSubmit={login} className="mx-auto max-w-sm space-y-3">
                 <label className="block">
                   <span className="mb-1 block text-xs text-muted">Seu nick no jogo</span>
                   <input
@@ -271,6 +273,7 @@ export function GuildPanel() {
             loading={peopleLoading}
             error={peopleError}
             me={session.status === "in" ? session.name : null}
+            discord={discord}
             onChanged={() => void loadPeople(true)}
             onSessionLost={() => setSession({ status: "out" })}
           />

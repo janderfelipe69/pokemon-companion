@@ -64,8 +64,12 @@ export function parseWants(list: unknown): BoostWant[] | null {
 export const sameWants = (a: readonly BoostWant[], b: readonly BoostWant[]) =>
   a.length === b.length && a.every((w, i) => w.type === b[i].type && w.tiers.length === b[i].tiers.length && w.tiers.every((t, j) => t === b[i].tiers[j]));
 
-/** Um drop publicado vale este tempo e depois some sozinho. */
+/** Janela máxima que o banco guarda um drop (a rodada de verdade acaba antes: veja `roundEnd`). */
 export const DROP_TTL_HOURS = 24;
+/** Todo drop publicado some às 3h da manhã (horário de Brasília) seguinte, junto com os da mesma rodada. */
+export const DROP_CUTOFF_HOUR = 3;
+export const ROUND_END_TEXT = "às 3h da manhã";
+export const BOSS_SCHEDULE_TEXT = "domingo às 21:30";
 export const MAX_STONE_QTY = 999;
 
 /** Uma stone que o membro tem para a rodada: "2x Advanced Fire". */
