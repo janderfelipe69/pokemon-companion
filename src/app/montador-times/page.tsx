@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { TeamTools } from "@/components/team/TeamTools";
 import { HUNT_TIERS, TEAM_PRESETS } from "@/config/teamPresets";
 import { buildPokedexEntries } from "@/lib/pokedex";
-import { isHuntableMega, isSealedDrop } from "@/lib/sealed";
+import { isHuntableMega, isMega, isSealedDrop, megaName } from "@/lib/sealed";
 import { getCatalog } from "@/lib/supabase/catalog";
 import { getTeamPools } from "@/lib/supabase/teamPool";
 
@@ -14,7 +14,9 @@ export const revalidate = 60;
 
 export default async function Page() {
   // Mesma fonte da Pokédex: o montador só usa Pokémon cadastrados lá.
-  const [{ pokemon, source }, pools] = await Promise.all([getCatalog(), getTeamPools()]);
+  const [{ pokemon: catalog, source }, pools] = await Promise.all([getCatalog(), getTeamPools()]);
+  // O cadastro guarda "Absol" com a variante Mega: o nome mostrado precisa dizer "Mega Absol".
+  const pokemon = catalog.map((p) => (isMega(p) ? { ...p, sourceName: megaName(p) } : p));
   const tiersInUse = new Set<string>([
     ...HUNT_TIERS,
     ...TEAM_PRESETS.flatMap((p) => [...p.tiers, ...(p.fallback ?? [])].map((t) => t.tier)),

@@ -7,9 +7,10 @@ import { Card } from "@/components/ui/Card";
 import { TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
 import { normalize } from "@/lib/pokemonFilters";
 import { buildTeams, listCandidates, monoOptions, TEAM_SIZE } from "@/lib/teamBuilder";
+import { sealedHuntOf } from "@/lib/sealed";
 import { huntTargets } from "@/lib/typeFinder";
 import type { PokedexEntry } from "@/types/pokedex";
-import type { PokemonType, Tier } from "@/types/pokemon";
+import { TIERS, type PokemonType, type Tier } from "@/types/pokemon";
 import { TargetPicker } from "./TargetPicker";
 import { TypeRestriction, type TypeMode } from "./TypeRestriction";
 import { MemberTile, TeamCard } from "./TeamCard";
@@ -18,7 +19,7 @@ import { WeaknessPanel } from "./WeaknessPanel";
 const STEP = "mb-4 flex items-center gap-3 text-lg font-semibold";
 const stepNumber = "grid size-7 place-items-center rounded-full bg-gold/15 text-sm text-gold";
 
-export function TeamBuilder({ entries, pools = {}, jumpTo = null }: { entries: PokedexEntry[]; /** Lista de Pokémon úteis por tipo de time (IDs). */ pools?: Record<string, string[]>; /** Escolhe um alvo vindo de fora (a aba "Tenho um tipo"). `nonce` muda a cada pedido, mesmo para o mesmo alvo. */ jumpTo?: { id: string; nonce: number } | null }) {
+export function TeamBuilder({ entries, pools = {}, jumpTo = null, targetList, variant = "cacas" }: { entries: PokedexEntry[]; /** Lista de Pokémon úteis por tipo de time (IDs). */ pools?: Record<string, string[]>; /** Escolhe um alvo vindo de fora (a aba "Tenho um tipo"). `nonce` muda a cada pedido, mesmo para o mesmo alvo. */ jumpTo?: { id: string; nonce: number } | null ; /** Lista própria de alvos (aba Sealed). Sem ela, usa os alvos de caça normais. */ targetList?: PokedexEntry[]; variant?: "cacas" | "sealed" }) {
   const [targetId, setTargetId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<Tier | "">("");
@@ -41,7 +42,9 @@ export function TeamBuilder({ entries, pools = {}, jumpTo = null }: { entries: P
   }, [scrollTick]);
 
   // Só Mythic, Legendary e Ultra Rare entram em rotação como alvo. Os tiers abaixo ficam de fora.
-  const targets = useMemo(() => huntTargets(entries), [entries]);
+  const targets = useMemo(() => targetList ?? huntTargets(entries), [targetList, entries]);
+  const sealed = variant === "sealed";
+  const tierChips = useMemo(() => (sealed ? TIERS.filter((t) => targets.some((e) => e.pokemon.tier === t)) : undefined), [sealed, targets]);
 
   const visibleTargets = useMemo(() => {
     const q = normalize(query);
@@ -113,9 +116,9 @@ export function TeamBuilder({ entries, pools = {}, jumpTo = null }: { entries: P
       <div ref={pickerRef} className="scroll-mt-4">
         <Card>
           <h2 className={STEP}>
-            <span className={stepNumber}>1</span> O que você quer caçar?
+            <span className={stepNumber}>1</span> {sealed ? "Qual Mega você quer caçar?" : "O que você quer caçar?"}
           </h2>
-          <TargetPicker targets={visibleTargets} selectedId={targetId} query={query} tier={tierFilter} onQuery={setQuery} onTier={setTierFilter} onSelect={pickTarget} />
+          <TargetPicker targets={visibleTargets} selectedId={targetId} query={query} tier={tierFilter} onQuery={setQuery} onTier={setTierFilter} onSelect={pickTarget} tiers={tierChips} placeholder={sealed ? "Buscar Mega para caçar" : undefined} noteOf={sealed ? (e) => { const hunt = sealedHuntOf(e.pokemon); return hunt ? `Cai de: ${hunt}` : null; } : undefined} />
         </Card>
       </div>
 

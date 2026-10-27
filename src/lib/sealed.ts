@@ -14,7 +14,7 @@ export const isHuntableMega = (p: Pokemon): boolean => isMega(p) && HUNTABLE_MEG
 export const isSealedDrop = (p: Pokemon): boolean => isMega(p) && !isHuntableMega(p);
 
 /** "Mega Scolipede": o cadastro às vezes guarda só "Scolipede" com a variante "Mega". */
-export const megaName = (p: Pokemon): string => (/^mega\s/i.test(p.sourceName ?? "") ? (p.sourceName as string) : `Mega ${p.name}`);
+export const megaName = (p: Pokemon): string => (/^mega\s/i.test(p.sourceName ?? "") ? (p.sourceName as string) : `Mega ${p.name.replace(/^mega\s+/i, "")}`);
 
 /** Nome da caça Sealed que dropa este Mega, se já estiver cadastrado em config/sealed.ts. */
 export const sealedHuntOf = (p: Pokemon): string | null => SEALED_HUNTS[speciesOf(p)] ?? null;

@@ -12,7 +12,7 @@ import { HUNT_TIERS } from "@/config/teamPresets";
 import { normalize } from "@/lib/pokemonFilters";
 import { reachFor, tallyTypes, type Reach } from "@/lib/typeFinder";
 import type { PokedexEntry } from "@/types/pokedex";
-import type { PokemonType, Tier } from "@/types/pokemon";
+import { TIERS, type PokemonType, type Tier } from "@/types/pokemon";
 import { EffectBadge } from "./EffectBadge";
 
 const STEP = "mb-4 flex items-center gap-3 text-lg font-semibold";
@@ -23,6 +23,8 @@ const chip = (active: boolean) =>
 type Props = {
   /** Os alvos de caça (mesma lista do montador). */
   targets: PokedexEntry[];
+  /** Os Megas caçados em DZ (aba Sealed). Ficam separados: um interruptor troca a lista. */
+  sealedTargets?: PokedexEntry[];
   selected: PokemonType[];
   onChange: (types: PokemonType[]) => void;
   /** Clicar em um Pokémon leva ao montador de times com ele já escolhido. */
@@ -72,9 +74,13 @@ function Group({ title, hint, items, onPick }: { title: string; hint: string; it
 }
 
 /** "Tenho um tipo": escolha 1 ou mais tipos de ataque e veja quais Pokémon eles conseguem caçar, e quais ficam de fora. */
-export function TypeFinder({ targets, selected, onChange, onPick }: Props) {
+export function TypeFinder({ targets: huntList, sealedTargets = [], selected, onChange, onPick }: Props) {
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<Tier | "">("");
+  const [scope, setScope] = useState<"cacas" | "sealed">("cacas");
+  const sealed = scope === "sealed";
+  const targets = sealed ? sealedTargets : huntList;
+  const tierChips = useMemo(() => (sealed ? TIERS.filter((t) => targets.some((e) => e.pokemon.tier === t)) : HUNT_TIERS), [sealed, targets]);
 
   const tally = useMemo(() => tallyTypes(targets), [targets]);
   const { reached, missed } = useMemo(() => reachFor(targets, selected), [targets, selected]);
@@ -102,6 +108,15 @@ export function TypeFinder({ targets, selected, onChange, onPick }: Props) {
             </button>
           )}
         </div>
+        {sealedTargets.length > 0 && (
+          <div className="mb-4 inline-flex flex-wrap gap-1 rounded-xl border border-line bg-raised p-1" role="radiogroup" aria-label="Lista de alvos">
+            {([["cacas", "Caças"], ["sealed", "Sealed (Megas)"]] as const).map(([id, label]) => (
+              <button key={id} type="button" role="radio" aria-checked={scope === id} onClick={() => { setScope(id); setTier(""); }} className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${scope === id ? "bg-gold/15 text-gold" : "text-muted hover:text-fg"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2" role="group" aria-label="Tipos de ataque">
           {tally.map((t) => {
             const active = selected.includes(t.type);
@@ -123,7 +138,7 @@ export function TypeFinder({ targets, selected, onChange, onPick }: Props) {
             );
           })}
         </div>
-        <p className="mt-3 text-xs text-muted">O número é quantos Pokémon de caça (Mythic, Legendary e Ultra Rare) o tipo bate com efetividade máxima. Marque mais de um tipo para ver o que o conjunto cobre.</p>
+        <p className="mt-3 text-xs text-muted">{sealed ? "O número é quantos Megas (caças Sealed) o tipo bate com efetividade máxima." : "O número é quantos Pokémon de caça (Mythic, Legendary e Ultra Rare) o tipo bate com efetividade máxima."} Marque mais de um tipo para ver o que o conjunto cobre.</p>
       </Card>
 
       {selected.length === 0 ? (
@@ -147,7 +162,7 @@ export function TypeFinder({ targets, selected, onChange, onPick }: Props) {
             </span>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por tier">
               <button type="button" className={chip(tier === "")} onClick={() => setTier("")} aria-pressed={tier === ""}>Todos</button>
-              {HUNT_TIERS.map((t) => (
+              {tierChips.map((t) => (
                 <button key={t} type="button" className={chip(tier === t)} onClick={() => setTier(t)} aria-pressed={tier === t}>{t}</button>
               ))}
             </div>

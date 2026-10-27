@@ -16,12 +16,17 @@ type Props = {
   onQuery: (q: string) => void;
   onTier: (t: Tier | "") => void;
   onSelect: (id: string) => void;
+  /** Chips de tier mostrados (padrão: Mythic, Legendary e Ultra Rare). */
+  tiers?: readonly Tier[];
+  placeholder?: string;
+  /** Linha extra embaixo do tier (ex.: de qual caça Sealed o Mega cai). */
+  noteOf?: (entry: PokedexEntry) => string | null;
 };
 
 const chip = (active: boolean) =>
   `rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-gold bg-gold/10 text-gold" : "border-line bg-raised text-muted hover:border-gold/50 hover:text-fg"}`;
 
-export function TargetPicker({ targets, selectedId, query, tier, onQuery, onTier, onSelect }: Props) {
+export function TargetPicker({ targets, selectedId, query, tier, onQuery, onTier, onSelect, tiers = HUNT_TIERS, placeholder = "Buscar Pokémon para caçar", noteOf }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -31,8 +36,8 @@ export function TargetPicker({ targets, selectedId, query, tier, onQuery, onTier
             type="search"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
-            placeholder="Buscar Pokémon para caçar"
-            aria-label="Buscar Pokémon para caçar"
+            placeholder={placeholder}
+            aria-label={placeholder}
             className="w-full rounded-lg border border-line bg-raised py-2.5 pl-9 pr-3 text-sm text-fg placeholder:text-muted"
           />
         </span>
@@ -40,7 +45,7 @@ export function TargetPicker({ targets, selectedId, query, tier, onQuery, onTier
           <button type="button" className={chip(tier === "")} onClick={() => onTier("")} aria-pressed={tier === ""}>
             Todos
           </button>
-          {HUNT_TIERS.map((t) => (
+          {tiers.map((t) => (
             <button key={t} type="button" className={chip(tier === t)} onClick={() => onTier(t)} aria-pressed={tier === t}>
               {t}
             </button>
@@ -70,6 +75,7 @@ export function TargetPicker({ targets, selectedId, query, tier, onQuery, onTier
                     <span className="size-2 rounded-full" style={{ backgroundColor: tierColors[p.tier ?? "undefined"] }} />
                     {p.tier}
                   </p>
+                  {noteOf?.(entry) && <p className="text-[11px] leading-snug text-muted">{noteOf(entry)}</p>}
                   <div className="flex flex-wrap gap-1">{entry.originalTypes?.map((t) => <TypeBadge key={t} type={t} />)}</div>
                 </div>
               </button>
