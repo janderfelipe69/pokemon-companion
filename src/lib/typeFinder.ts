@@ -29,39 +29,42 @@ export function sealedTargets(entries: PokedexEntry[]): PokedexEntry[] {
     .sort((a, b) => order(a.pokemon.tier) - order(b.pokemon.tier) || (a.pokemon.sourceName ?? a.pokemon.name).localeCompare(b.pokemon.sourceName ?? b.pokemon.name, "pt-BR"));
 }
 
-export type Hit = { type: PokemonType; level: EffectLevel };
+export type Hit = { type: PokemonType; level: EffectLevel; /** Esse tipo, sozinho, já bate o máximo possível contra este alvo. */ full: boolean };
+
+/** `all` = só os alvos que TODOS os tipos escolhidos batem (o que o conjunto caça junto). `any` = os que ao menos um tipo bate. */
+export type MatchMode = "all" | "any";
 
 export type Reach = {
   entry: PokedexEntry;
-  /** Todos os tipos escolhidos que batem o alvo (o melhor primeiro). */
+  /** Os tipos escolhidos que batem o alvo (o melhor primeiro). */
   hits: Hit[];
-  /** `true` = efetividade máxima possível contra este alvo (2x; ou 1.5x quando o alvo não tem acerto duplo). Mesma regra do montador. */
+  /** `true` = efetividade máxima. Em `any`, o melhor tipo já basta; em `all`, TODOS os tipos têm que bater o máximo (o time vale o que o pior tipo vale). */
   full: boolean;
 };
 
-/** Os tipos de ataque que batem o alvo, do melhor para o pior, restritos aos `types` escolhidos. */
-function hitsOn(defenders: PokemonType[], types: readonly PokemonType[]): Hit[] {
+/** Os tipos de ataque escolhidos que batem o alvo, do melhor para o pior. */
+export function hitsOn(defenders: PokemonType[], types: readonly PokemonType[]): Hit[] {
+  const { fullLevels } = weaknessProfile(defenders);
   const hits: Hit[] = [];
   for (const type of types) {
     const level = levelOf(rawMultiplier(type, defenders));
-    if (level) hits.push({ type, level });
+    if (level) hits.push({ type, level, full: fullLevels.includes(level) });
   }
   return hits.sort((a, b) => EFFECT_MULTIPLIER[b.level] - EFFECT_MULTIPLIER[a.level]);
 }
 
 /** Quais alvos os tipos escolhidos batem (e com que força) e quais ficam de fora. */
-export function reachFor(targets: PokedexEntry[], types: readonly PokemonType[]): { reached: Reach[]; missed: PokedexEntry[] } {
+export function reachFor(targets: PokedexEntry[], types: readonly PokemonType[], mode: MatchMode = "any"): { reached: Reach[]; missed: PokedexEntry[] } {
   const reached: Reach[] = [];
   const missed: PokedexEntry[] = [];
   for (const entry of targets) {
-    const defenders = entry.originalTypes ?? [];
-    const hits = hitsOn(defenders, types);
-    if (hits.length === 0) {
+    const hits = hitsOn(entry.originalTypes ?? [], types);
+    const ok = mode === "all" ? hits.length === types.length && types.length > 0 : hits.length > 0;
+    if (!ok) {
       missed.push(entry);
       continue;
     }
-    const { fullLevels } = weaknessProfile(defenders);
-    reached.push({ entry, hits, full: fullLevels.includes(hits[0].level) });
+    reached.push({ entry, hits, full: mode === "all" ? hits.every((h) => h.full) : hits[0].full });
   }
   return { reached, missed };
 }

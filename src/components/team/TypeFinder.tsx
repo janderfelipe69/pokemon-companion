@@ -10,7 +10,7 @@ import { typeInfo } from "@/config/pokemonTypes";
 import { tierColors } from "@/config/tiers";
 import { HUNT_TIERS } from "@/config/teamPresets";
 import { normalize } from "@/lib/pokemonFilters";
-import { reachFor, tallyTypes, type Reach } from "@/lib/typeFinder";
+import { hitsOn, reachFor, tallyTypes, type MatchMode, type Reach } from "@/lib/typeFinder";
 import type { PokedexEntry } from "@/types/pokedex";
 import { TIERS, type PokemonType, type Tier } from "@/types/pokemon";
 import { EffectBadge } from "./EffectBadge";
@@ -32,7 +32,7 @@ type Props = {
 };
 
 function ReachCard({ item, onPick }: { item: Reach; onPick: (id: string) => void }) {
-  const { entry, hits, full } = item;
+  const { entry, hits } = item;
   const { pokemon: p } = entry;
   return (
     <button type="button" onClick={() => onPick(p.id)} className="flex flex-col overflow-hidden rounded-xl border border-line bg-raised text-left transition-colors hover:border-gold/50" title="Montar time para caçar este Pokémon">
@@ -49,7 +49,7 @@ function ReachCard({ item, onPick }: { item: Reach; onPick: (id: string) => void
           {hits.map((h) => (
             <span key={h.type} className="inline-flex items-center gap-1" title={`${typeInfo[h.type].label}: ${h.level === "x2" ? "2x" : "1.5x"}`}>
               <TypeIcon type={h.type} className="size-5" />
-              <EffectBadge level={h.level} full={full && h === hits[0]} />
+              <EffectBadge level={h.level} full={h.full} />
             </span>
           ))}
         </div>
@@ -78,12 +78,13 @@ export function TypeFinder({ targets: huntList, sealedTargets = [], selected, on
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<Tier | "">("");
   const [scope, setScope] = useState<"cacas" | "sealed">("cacas");
+  const [match, setMatch] = useState<MatchMode>("all");
   const sealed = scope === "sealed";
   const targets = sealed ? sealedTargets : huntList;
   const tierChips = useMemo(() => (sealed ? TIERS.filter((t) => targets.some((e) => e.pokemon.tier === t)) : HUNT_TIERS), [sealed, targets]);
 
   const tally = useMemo(() => tallyTypes(targets), [targets]);
-  const { reached, missed } = useMemo(() => reachFor(targets, selected), [targets, selected]);
+  const { reached, missed } = useMemo(() => reachFor(targets, selected, match), [targets, selected, match]);
 
   const q = normalize(query);
   const matches = (e: PokedexEntry) => (!tier || e.pokemon.tier === tier) && (!q || normalize(e.pokemon.sourceName ?? e.pokemon.name).includes(q));
@@ -94,6 +95,8 @@ export function TypeFinder({ targets: huntList, sealedTargets = [], selected, on
 
   const toggle = (type: PokemonType) => onChange(selected.includes(type) ? selected.filter((t) => t !== type) : [...selected, type]);
   const fullCount = reached.filter((r) => r.full).length;
+  const multi = selected.length > 1;
+  const together = multi && match === "all";
 
   return (
     <div className="space-y-6">
@@ -146,12 +149,28 @@ export function TypeFinder({ targets: huntList, sealedTargets = [], selected, on
       ) : (
         <Card>
           <h2 className={STEP}>
-            <span className={stepNumber}>2</span> O que {selected.length === 1 ? "esse tipo" : "esses tipos"} consegue farmar
+            <span className={stepNumber}>2</span> {together ? "O que esses tipos caçam juntos" : selected.length === 1 ? "O que esse tipo consegue farmar" : "O que esses tipos conseguem farmar"}
           </h2>
+          {multi && (
+            <div className="mb-4">
+              <div className="inline-flex flex-wrap gap-1 rounded-xl border border-line bg-raised p-1" role="radiogroup" aria-label="Como combinar os tipos">
+                {([["all", "Bate com todos os tipos"], ["any", "Bate com algum tipo"]] as const).map(([id, label]) => (
+                  <button key={id} type="button" role="radio" aria-checked={match === id} onClick={() => setMatch(id)} className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${match === id ? "bg-gold/15 text-gold" : "text-muted hover:text-fg"}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {together
+                  ? "Só entram os Pokémon que todos os tipos marcados batem. É o que um time com esses tipos caça com todos os membros fazendo dano."
+                  : "Entram os Pokémon que pelo menos um dos tipos marcados bate. Cada card mostra quais tipos batem."}
+              </p>
+            </div>
+          )}
           <p className="mb-4 text-sm text-muted">
-            <strong className="font-medium text-fg">{fullCount}</strong> de {targets.length} Pokémon com efetividade máxima
-            {reached.length > fullCount && <>, mais <strong className="font-medium text-fg">{reached.length - fullCount}</strong> só com 1.5x</>}
-            {missed.length > 0 && <> · <strong className="font-medium text-fg">{missed.length}</strong> não {missed.length === 1 ? "é batido" : "são batidos"}</>}.
+            <strong className="font-medium text-fg">{fullCount}</strong> de {targets.length} Pokémon com efetividade máxima{together && " em todos os tipos"}
+            {reached.length > fullCount && <>, mais <strong className="font-medium text-fg">{reached.length - fullCount}</strong> {together ? "em que algum tipo só faz 1.5x" : "só com 1.5x"}</>}
+            {missed.length > 0 && <> · <strong className="font-medium text-fg">{missed.length}</strong> {together ? (missed.length === 1 ? "fica de fora" : "ficam de fora") : missed.length === 1 ? "não é batido" : "não são batidos"}</>}.
             {" "}Clique em um Pokémon para montar o time dele.
           </p>
 
@@ -169,8 +188,8 @@ export function TypeFinder({ targets: huntList, sealedTargets = [], selected, on
           </div>
 
           <div className="space-y-8">
-            <Group title="Efetividade máxima" hint="2x, ou 1.5x quando é o máximo possível contra o alvo. É o que o montador considera ideal." items={full} onPick={onPick} />
-            <Group title="Só 1.5x" hint="Bate, mas existe um tipo que faria mais dano nesse alvo." items={partial} onPick={onPick} />
+            <Group title="Efetividade máxima" hint={together ? "Todos os tipos marcados batem com 2x (ou 1.5x quando é o máximo possível contra o alvo)." : "2x, ou 1.5x quando é o máximo possível contra o alvo. É o que o montador considera ideal."} items={full} onPick={onPick} />
+            <Group title="Só 1.5x" hint={together ? "Todos os tipos batem, mas pelo menos um faz só 1.5x e existe um tipo que faria mais dano." : "Bate, mas existe um tipo que faria mais dano nesse alvo."} items={partial} onPick={onPick} />
             {full.length === 0 && partial.length === 0 && <p className="rounded-lg border border-line bg-raised p-4 text-sm text-muted">Nenhum Pokémon bate com essa busca e esse tier.</p>}
           </div>
 
@@ -178,10 +197,13 @@ export function TypeFinder({ targets: huntList, sealedTargets = [], selected, on
             <details className="group mt-8 rounded-xl border border-line bg-raised/50 p-4">
               <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
                 <EyeOff className="size-4 text-muted" aria-hidden />
-                Quem sobra: {shownMissed.length} Pokémon que {selected.length === 1 ? "esse tipo não bate" : "esses tipos não batem"}
+                {together ? "Fora do filtro" : "Quem sobra"}: {shownMissed.length} Pokémon que {selected.length === 1 ? "esse tipo não bate" : together ? "nem todos os tipos batem" : "esses tipos não batem"}
                 <span className="ml-auto text-xs text-muted group-open:hidden">mostrar</span>
               </summary>
-              <p className="mb-3 mt-2 text-xs text-muted">Para cobrir esses, some outro tipo ao conjunto. Clique em um deles para ver quais tipos batem.</p>
+              <p className="mb-3 mt-2 text-xs text-muted">
+                {together ? "Os ícones mostram quais dos seus tipos batem em cada um (os que faltam não batem). " : "Para cobrir esses, some outro tipo ao conjunto. "}
+                Clique em um deles para ver quais tipos batem.
+              </p>
               <ul className="flex flex-wrap gap-2">
                 {shownMissed.map((e) => (
                   <li key={e.pokemon.id}>
@@ -189,6 +211,11 @@ export function TypeFinder({ targets: huntList, sealedTargets = [], selected, on
                       <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: tierColors[e.pokemon.tier ?? "undefined"] }} aria-hidden />
                       {e.pokemon.sourceName ?? e.pokemon.name}
                       <span className="flex gap-0.5">{e.originalTypes?.map((t) => <TypeIcon key={t} type={t} className="size-4" />)}</span>
+                      {together && (
+                        <span className="ml-1 flex items-center gap-0.5 border-l border-line pl-2 text-[11px] text-muted" title="Tipos seus que batem neste Pokémon">
+                          {hitsOn(e.originalTypes ?? [], selected).length === 0 ? "nenhum bate" : hitsOn(e.originalTypes ?? [], selected).map((h) => <TypeIcon key={h.type} type={h.type} className="size-4" />)}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
