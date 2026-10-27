@@ -5,12 +5,14 @@ import type { PokedexEntry } from "@/types/pokedex";
 import type { PokemonType } from "@/types/pokemon";
 import { huntTargets, parseTypeParam } from "@/lib/typeFinder";
 import { TeamBuilder } from "./TeamBuilder";
+import { SealedList } from "./SealedList";
 import { TypeFinder } from "./TypeFinder";
 
-type Tab = "cacar" | "tipo";
+type Tab = "cacar" | "tipo" | "sealed";
 const TABS: { id: Tab; label: string; hint: string }[] = [
   { id: "cacar", label: "Quero caçar um Pokémon", hint: "Escolha o alvo e receba os times de 6" },
   { id: "tipo", label: "Tenho um tipo", hint: "Escolha o tipo e veja o que ele farma" },
+  { id: "sealed", label: "Sealed (Megas)", hint: "Megas não são caça: são DZ das caças Sealed" },
 ];
 
 /**
@@ -18,7 +20,7 @@ const TABS: { id: Tab; label: string; hint: string }[] = [
  * As duas ficam montadas (a inativa só escondida) para não perder o que a pessoa já escolheu ao trocar de aba.
  * A aba e os tipos vão para o endereço (?aba=tipo&tipos=dark,ghost), então dá para mandar o link no Discord.
  */
-export function TeamTools({ entries, pools = {} }: { entries: PokedexEntry[]; pools?: Record<string, string[]> }) {
+export function TeamTools({ entries, pools = {}, sealed = [] }: { entries: PokedexEntry[]; pools?: Record<string, string[]>; /** Megas que são DZ das caças Sealed. */ sealed?: PokedexEntry[] }) {
   const [tab, setTab] = useState<Tab>("cacar");
   const [types, setTypes] = useState<PokemonType[]>([]);
   const [jump, setJump] = useState<{ id: string; nonce: number } | null>(null);
@@ -30,7 +32,8 @@ export function TeamTools({ entries, pools = {} }: { entries: PokedexEntry[]; po
   // Lê o endereço uma vez, já no navegador (a página é gerada no servidor e não conhece o ?aba=).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("aba") === "tipo") setTab("tipo");
+    const aba = params.get("aba");
+    if (aba === "tipo" || aba === "sealed") setTab(aba);
     setTypes(parseTypeParam(params.get("tipos")));
     setReady(true);
   }, []);
@@ -39,7 +42,7 @@ export function TeamTools({ entries, pools = {} }: { entries: PokedexEntry[]; po
   useEffect(() => {
     if (!ready) return;
     const url = new URL(window.location.href);
-    if (tab === "tipo") url.searchParams.set("aba", "tipo");
+    if (tab !== "cacar") url.searchParams.set("aba", tab);
     else url.searchParams.delete("aba");
     if (tab === "tipo" && types.length > 0) url.searchParams.set("tipos", types.join(","));
     else url.searchParams.delete("tipos");
@@ -78,6 +81,9 @@ export function TeamTools({ entries, pools = {} }: { entries: PokedexEntry[]; po
       </div>
       <div id="painel-tipo" role="tabpanel" aria-labelledby="aba-tipo" hidden={tab !== "tipo"}>
         <TypeFinder targets={targets} selected={types} onChange={setTypes} onPick={pick} />
+      </div>
+      <div id="painel-sealed" role="tabpanel" aria-labelledby="aba-sealed" hidden={tab !== "sealed"}>
+        <SealedList entries={sealed} />
       </div>
     </div>
   );

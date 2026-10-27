@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { TeamTools } from "@/components/team/TeamTools";
 import { HUNT_TIERS, TEAM_PRESETS } from "@/config/teamPresets";
 import { buildPokedexEntries } from "@/lib/pokedex";
+import { isHuntableMega, isSealedDrop } from "@/lib/sealed";
 import { getCatalog } from "@/lib/supabase/catalog";
 import { getTeamPools } from "@/lib/supabase/teamPool";
 
@@ -19,7 +20,10 @@ export default async function Page() {
     ...TEAM_PRESETS.flatMap((p) => [...p.tiers, ...(p.fallback ?? [])].map((t) => t.tier)),
   ]);
   // Envia ao navegador só os tiers que o montador realmente usa.
-  const entries = buildPokedexEntries(pokemon.filter((p) => p.tier && tiersInUse.has(p.tier)));
+  // A Mega que é caça (Clefable) entra mesmo que o tier dela não esteja nas listas acima.
+  const entries = buildPokedexEntries(pokemon.filter((p) => (p.tier && tiersInUse.has(p.tier)) || isHuntableMega(p)));
+  // Megas que são DZ das caças Sealed, de qualquer tier, para a aba "Sealed".
+  const sealed = buildPokedexEntries(pokemon.filter(isSealedDrop));
 
   return (
     <>
@@ -28,7 +32,7 @@ export default async function Page() {
         description="Escolha o Pokémon que quer caçar e receba times de 6 que batem a efetividade, ou escolha um tipo e veja o que ele consegue farmar."
         badge={<Badge tone="teal">{source === "supabase" ? "Banco de dados" : "Lista importada"}</Badge>}
       />
-      <TeamTools entries={entries} pools={pools} />
+      <TeamTools entries={entries} pools={pools} sealed={sealed} />
     </>
   );
 }

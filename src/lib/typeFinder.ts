@@ -1,13 +1,20 @@
 import { HUNT_TIERS } from "@/config/teamPresets";
+import { isHuntableMega, isSealedDrop } from "@/lib/sealed";
 import { EFFECT_MULTIPLIER, levelOf, rawMultiplier, weaknessProfile, type EffectLevel } from "@/lib/effectiveness";
 import type { PokedexEntry } from "@/types/pokedex";
 import { POKEMON_TYPES, type PokemonType, type Tier } from "@/types/pokemon";
 
-/** Pokémon que dá para caçar (Mythic, Legendary e Ultra Rare com tipagem conhecida), ordenados por tier e nome. */
+/**
+ * Pokémon que dá para caçar: Mythic, Legendary e Ultra Rare com tipagem conhecida, ordenados por tier e nome.
+ * Megas ficam de fora (são DZ das caças Sealed), exceto os que são caça de verdade (Clefable), mesmo que o tier dela seja outro.
+ */
 export function huntTargets(entries: PokedexEntry[]): PokedexEntry[] {
-  const order = (t: Tier | null | undefined) => HUNT_TIERS.indexOf(t as Tier);
+  const order = (t: Tier | null | undefined) => {
+    const i = HUNT_TIERS.indexOf(t as Tier);
+    return i < 0 ? HUNT_TIERS.length : i;
+  };
   return entries
-    .filter((e) => e.pokemon.tier && HUNT_TIERS.includes(e.pokemon.tier) && e.originalTypes && e.originalTypes.length > 0)
+    .filter((e) => !isSealedDrop(e.pokemon) && ((e.pokemon.tier && HUNT_TIERS.includes(e.pokemon.tier)) || isHuntableMega(e.pokemon)) && e.originalTypes && e.originalTypes.length > 0)
     .sort((a, b) => order(a.pokemon.tier) - order(b.pokemon.tier) || (a.pokemon.sourceName ?? a.pokemon.name).localeCompare(b.pokemon.sourceName ?? b.pokemon.name, "pt-BR"));
 }
 
