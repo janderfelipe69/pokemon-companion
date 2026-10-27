@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
-import { TeamBuilder } from "@/components/team/TeamBuilder";
+import { TeamTools } from "@/components/team/TeamTools";
 import { HUNT_TIERS, TEAM_PRESETS } from "@/config/teamPresets";
 import { buildPokedexEntries } from "@/lib/pokedex";
 import { getCatalog } from "@/lib/supabase/catalog";
@@ -25,10 +25,10 @@ export default async function Page() {
     <>
       <PageHeader
         title="Montador de times"
-        description="Escolha o Pokémon que quer caçar e receba times de 6 que batem a efetividade, de acordo com o seu orçamento."
+        description="Escolha o Pokémon que quer caçar e receba times de 6 que batem a efetividade, ou escolha um tipo e veja o que ele consegue farmar."
         badge={<Badge tone="teal">{source === "supabase" ? "Banco de dados" : "Lista importada"}</Badge>}
       />
-      <TeamBuilder entries={entries} pools={pools} />
+      <TeamTools entries={entries} pools={pools} />
     </>
   );
 }

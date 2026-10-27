@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowUp, ChevronDown, RefreshCw, Star } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { HUNT_TIERS, TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
+import { TEAM_PRESETS, type TeamPreset } from "@/config/teamPresets";
 import { normalize } from "@/lib/pokemonFilters";
 import { buildTeams, listCandidates, monoOptions, TEAM_SIZE } from "@/lib/teamBuilder";
+import { huntTargets } from "@/lib/typeFinder";
 import type { PokedexEntry } from "@/types/pokedex";
 import type { PokemonType, Tier } from "@/types/pokemon";
 import { TargetPicker } from "./TargetPicker";
@@ -17,7 +18,7 @@ import { WeaknessPanel } from "./WeaknessPanel";
 const STEP = "mb-4 flex items-center gap-3 text-lg font-semibold";
 const stepNumber = "grid size-7 place-items-center rounded-full bg-gold/15 text-sm text-gold";
 
-export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; /** Lista de Pokémon úteis por tipo de time (IDs). */ pools?: Record<string, string[]> }) {
+export function TeamBuilder({ entries, pools = {}, jumpTo = null }: { entries: PokedexEntry[]; /** Lista de Pokémon úteis por tipo de time (IDs). */ pools?: Record<string, string[]>; /** Escolhe um alvo vindo de fora (a aba "Tenho um tipo"). `nonce` muda a cada pedido, mesmo para o mesmo alvo. */ jumpTo?: { id: string; nonce: number } | null }) {
   const [targetId, setTargetId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<Tier | "">("");
@@ -40,12 +41,7 @@ export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; 
   }, [scrollTick]);
 
   // Só Mythic, Legendary e Ultra Rare entram em rotação como alvo. Os tiers abaixo ficam de fora.
-  const targets = useMemo(() => {
-    const order = (t: Tier | null | undefined) => HUNT_TIERS.indexOf(t as Tier);
-    return entries
-      .filter((e) => e.pokemon.tier && HUNT_TIERS.includes(e.pokemon.tier) && e.originalTypes && e.originalTypes.length > 0)
-      .sort((a, b) => order(a.pokemon.tier) - order(b.pokemon.tier) || (a.pokemon.sourceName ?? a.pokemon.name).localeCompare(b.pokemon.sourceName ?? b.pokemon.name, "pt-BR"));
-  }, [entries]);
+  const targets = useMemo(() => huntTargets(entries), [entries]);
 
   const visibleTargets = useMemo(() => {
     const q = normalize(query);
@@ -98,6 +94,16 @@ export function TeamBuilder({ entries, pools = {} }: { entries: PokedexEntry[]; 
     setRound(0);
     setShowAll(false);
   };
+
+  // Pedido vindo da aba "Tenho um tipo": escolhe o alvo e a página desce até as fraquezas dele.
+  useEffect(() => {
+    if (jumpTo && targets.some((e) => e.pokemon.id === jumpTo.id)) {
+      setQuery("");
+      setTierFilter("");
+      pickTarget(jumpTo.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage a um novo pedido (nonce)
+  }, [jumpTo?.nonce]);
 
   const best = build?.teams[0];
   const incomplete = !!build && (!best || best.missing > 0);
