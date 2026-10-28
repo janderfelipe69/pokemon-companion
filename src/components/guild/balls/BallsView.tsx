@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { ballSlug, ballTotal, type BallData, type BallProject } from "@/config/guildBalls";
-import { drawBallCard, canvasToPng, loadCardAssets, shrinkSprite } from "@/lib/guild/ballsImage";
+import { ballSlug, ballTotal, projectDays, shortDate, type BallData, type BallProject } from "@/config/guildBalls";
+import { drawBallCard, canvasToPng, loadCardAssets, shrinkSprite, type CardCapture } from "@/lib/guild/ballsImage";
 import { parseBallText } from "@/lib/guild/ballsParse";
 import { BallCardCanvas } from "./BallCardCanvas";
 import { CaptureForm } from "./CaptureForm";
@@ -23,8 +23,23 @@ async function readJson(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
 
-async function renderPng(data: BallData, sprite: string | null, capture?: BallProject["capture"]) {
-  return canvasToPng(drawBallCard(data, await loadCardAssets(data, sprite), undefined, capture ? { ball: capture.ball, spent: capture.spent } : null));
+/**
+ * Dados do selo "Capturado" de um projeto. O início só entra se o projeto existia antes da captura
+ * (tem mais de uma linha no histórico); projeto que já nasceu capturado não tem "primeiro post".
+ */
+function cardCapture(p: BallProject): CardCapture | null {
+  return p.capture ? { ball: p.capture.ball, spent: p.capture.spent, startedAt: p.history.length > 1 ? p.createdAt : null, capturedAt: p.capture.at } : null;
+}
+
+/** "4 dias de projeto (desde 25/10)" ou `null` se não há início registrado. */
+function duration(p: BallProject): string | null {
+  const c = cardCapture(p);
+  const days = c?.startedAt && c.capturedAt ? projectDays(c.startedAt, c.capturedAt) : null;
+  return days && c?.startedAt ? `${days} ${days === 1 ? "dia" : "dias"} de projeto (desde ${shortDate(c.startedAt)})` : null;
+}
+
+async function renderPng(data: BallData, sprite: string | null, capture?: CardCapture | null) {
+  return canvasToPng(drawBallCard(data, await loadCardAssets(data, sprite), undefined, capture ?? null));
 }
 
 function download(blob: Blob, name: string) {
@@ -48,13 +63,13 @@ function ProjectCard({ project: p, onOpen }: { project: BallProject; onOpen: (id
   const capture = p.capture;
   return (
     <button type="button" onClick={() => onOpen(p.id)} className={`group rounded-xl border bg-panel p-3 text-left transition-colors hover:bg-raised ${capture ? "border-teal/40 hover:border-teal" : "border-line hover:border-gold/50"}`}>
-      <BallCardCanvas data={p} sprite={p.sprite} capture={capture} />
+      <BallCardCanvas data={p} sprite={p.sprite} capture={cardCapture(p)} />
       <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
         <span className="font-semibold">{title(p)}</span>
         {capture ? <Badge tone="teal">✓ Capturado</Badge> : <Delta value={delta(p)} />}
       </div>
       <p className="mt-0.5 px-1 text-xs text-muted">
-        {capture ? <>Capturado na {capture.ball} ({fmt(capture.spent)} gastas){capture.by ? <> por {capture.by}</> : null} em {when(capture.at)}</> : <>{fmt(p.total)} balls · atualizado por {p.updatedBy ?? "?"} em {when(p.updatedAt)}</>}
+        {capture ? <>Capturado na {capture.ball} ({fmt(capture.spent)} gastas){capture.by ? <> por {capture.by}</> : null} em {when(capture.at)}{duration(p) ? <> · {duration(p)}</> : null}</> : <>{fmt(p.total)} balls · atualizado por {p.updatedBy ?? "?"} em {when(p.updatedAt)}</>}
       </p>
     </button>
   );
@@ -243,13 +258,13 @@ export function BallsView() {
             <h2 className="text-xl font-semibold">{title(open)}</h2>
             <p className="mt-1 text-sm text-muted">
               Aberto por {open.createdBy ?? "?"} · {fmt(open.total)} balls
-              {open.capture && <> · <span className="text-teal">capturado na {open.capture.ball} ({fmt(open.capture.spent)} gastas) em {when(open.capture.at)}</span></>}
+              {open.capture && <> · <span className="text-teal">capturado na {open.capture.ball} ({fmt(open.capture.spent)} gastas) em {when(open.capture.at)}{duration(open) ? ` · ${duration(open)}` : ""}</span></>}
             </p>
             <div className="mt-4">
-              <BallCardCanvas data={open} sprite={open.sprite} capture={open.capture} />
+              <BallCardCanvas data={open} sprite={open.sprite} capture={cardCapture(open)} />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void renderPng(open, open.sprite, open.capture).then((b) => download(b, title(open)))} className={ghostButton}>
+              <button type="button" onClick={() => void renderPng(open, open.sprite, cardCapture(open)).then((b) => download(b, title(open)))} className={ghostButton}>
                 <Download className="size-4" aria-hidden /> Baixar imagem
               </button>
               {open.createdBy === me && (

@@ -1,5 +1,5 @@
 import "server-only";
-import { ballTotal, type BallData, type CaptureStats } from "@/config/guildBalls";
+import { ballTotal, shortDate, type BallData, type CaptureStats } from "@/config/guildBalls";
 import { esc, siteUrl, WEBHOOK_RE } from "./discord";
 
 const BOT_NAME = "Projetos da Guilda";
@@ -73,7 +73,7 @@ export async function postCaptureImage(options: { data: BallData; image: Blob; b
   if (stats?.lucky) lines.push("", `🍀 **Sorte grande!** Capturou com só ${fmt(total)} balls.`);
 
   const fields: { name: string; value: string; inline: boolean }[] = [];
-  if (stats?.days !== null && stats?.days !== undefined) fields.push({ name: "📅 Duração", value: stats.days === 0 ? "No mesmo dia" : `${stats.days} ${stats.days === 1 ? "dia" : "dias"}`, inline: true });
+  if (stats?.days) fields.push({ name: "📅 Duração", value: `${stats.days} ${stats.days === 1 ? "dia" : "dias"}${stats.startedAt ? ` (desde ${shortDate(stats.startedAt)})` : ""}`, inline: true });
   if (stats && stats.updates > 0) fields.push({ name: "🔁 Atualizações", value: String(stats.updates), inline: true });
   if (stats?.number) fields.push({ name: "🏁 Captura da guilda", value: `nº ${stats.number}`, inline: true });
 

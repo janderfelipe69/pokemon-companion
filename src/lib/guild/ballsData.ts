@@ -1,5 +1,5 @@
 import "server-only";
-import { BALL_HISTORY_LIMIT, BALL_MAX_KINDS, LUCKY_MAX_BALLS, ballSlug, ballTotal, type BallData, type BallProject, type CaptureInput, type CaptureStats } from "@/config/guildBalls";
+import { BALL_HISTORY_LIMIT, BALL_MAX_KINDS, LUCKY_MAX_BALLS, ballSlug, projectDays, ballTotal, type BallData, type BallProject, type CaptureInput, type CaptureStats } from "@/config/guildBalls";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSetupMissing } from "./boostData";
 
@@ -110,7 +110,8 @@ async function captureStats(id: number, createdAt: string | null, capturedAt: st
     const best = (previous.data as { total: number }[] | null)?.[0]?.total;
     return {
       number: count.count ?? null,
-      days: createdAt ? Math.max(0, Math.floor((Date.parse(capturedAt) - Date.parse(createdAt)) / 86_400_000)) : null,
+      days: createdAt ? projectDays(createdAt, capturedAt) : null,
+      startedAt: createdAt,
       updates: Math.max(0, (updates.count ?? 1) - 1), // a linha da própria captura não conta
       record: best !== undefined && total > Number(best),
       lucky: total <= LUCKY_MAX_BALLS,

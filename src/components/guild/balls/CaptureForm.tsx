@@ -3,8 +3,8 @@
 import { useMemo, useState, type ClipboardEvent } from "react";
 import { AlertCircle, CheckCircle2, ImagePlus, PartyPopper } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { ballTotal, type BallData, type BallProject } from "@/config/guildBalls";
-import { canvasToPng, drawBallCard, loadCardAssets } from "@/lib/guild/ballsImage";
+import { ballTotal, projectDays, shortDate, type BallData, type BallProject } from "@/config/guildBalls";
+import { canvasToPng, drawBallCard, loadCardAssets, type CardCapture } from "@/lib/guild/ballsImage";
 import { parseCaptureText, sameName, type CaptureInfo } from "@/lib/guild/captureParse";
 import { BallCardCanvas } from "./BallCardCanvas";
 
@@ -52,6 +52,13 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
   const needsChoice = candidates.length > 1 && chosen === null;
   const number = project?.number ?? (lookedUp && info && lookedUp.name === info.pokemon ? lookedUp.number : null);
   const final = useMemo(() => (info ? afterCapture(project, info, number) : null), [info, project, number]);
+  // Dia 1 = primeiro post do projeto; a captura usa o horário da mensagem (ou agora, se a mensagem não trouxe).
+  const capturedAt = info?.at ?? null;
+  const capture: CardCapture | null = useMemo(
+    () => (info ? { ball: info.ball, spent: info.spent, startedAt: project?.createdAt ?? null, capturedAt: capturedAt ?? new Date().toISOString() } : null),
+    [info, project, capturedAt],
+  );
+  const days = capture?.startedAt && capture.capturedAt ? projectDays(capture.startedAt, capture.capturedAt) : null;
 
   async function readImage(file: Blob | null | undefined) {
     if (!file) return;
@@ -90,7 +97,6 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
         setLookedUp({ name: info.pokemon, number: dex });
       }
       const data: BallData = { ...final, number: dex };
-      const capture = { ball: info.ball, spent: info.spent };
       const png = await canvasToPng(drawBallCard(data, await loadCardAssets(data, project?.sprite ?? null), undefined, capture));
       const form = new FormData();
       form.append("data", JSON.stringify({ projectId, pokemon: info.pokemon, number: dex, shiny: info.shiny, ball: info.ball, spent: info.spent, capturedAt: info.at }));
@@ -166,7 +172,7 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
                 {project && (
                   <p className="text-muted">
                     Vai encerrar o projeto <b className="text-fg">{project.pokemon}{project.number ? ` #${project.number}` : ""}</b>
-                    {previousBall ? <>: a {info.ball} passa de <b className="text-fg">{fmt(previousBall.qty)}</b> para <b className="text-fg">{fmt(info.spent)}</b> (o que o jogo informou).</> : <>, incluindo a {info.ball} com {fmt(info.spent)}.</>} Total final: <b className="text-fg">{fmt(ballTotal(final.balls))}</b> balls.
+                    {previousBall ? <>: a {info.ball} passa de <b className="text-fg">{fmt(previousBall.qty)}</b> para <b className="text-fg">{fmt(info.spent)}</b> (o que o jogo informou).</> : <>, incluindo a {info.ball} com {fmt(info.spent)}.</>} Total final: <b className="text-fg">{fmt(ballTotal(final.balls))}</b> balls.{days && capture?.startedAt ? <> Projeto aberto em <b className="text-fg">{shortDate(capture.startedAt)}</b>: <b className="text-fg">{days} {days === 1 ? "dia" : "dias"}</b> até a captura.</> : null}
                   </p>
                 )}
               </div>
@@ -177,7 +183,7 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
             {!needsChoice && (
               <>
                 <div className="mx-auto max-w-3xl">
-                  <BallCardCanvas data={final} sprite={project?.sprite ?? null} capture={{ ball: info.ball, spent: info.spent }} />
+                  <BallCardCanvas data={final} sprite={project?.sprite ?? null} capture={capture} />
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button type="button" onClick={() => void confirm()} disabled={busy} className="rounded-lg bg-teal px-5 py-2.5 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40">

@@ -32,7 +32,7 @@ export function BallCardCanvas({ data, sprite = null, capture = null, className 
     };
     // `capture` é um objeto novo a cada render: só importam a ball e a quantidade.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, sprite, capture?.ball, capture?.spent]);
+  }, [data, sprite, capture?.ball, capture?.spent, capture?.startedAt, capture?.capturedAt]);
 
   return <canvas ref={ref} role="img" aria-label={`Projeto de balls: ${data.pokemon}`} className={`block h-auto w-full rounded-xl ${className}`} />;
 }

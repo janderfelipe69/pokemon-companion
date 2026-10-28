@@ -1,4 +1,4 @@
-import { ballTotal, type BallData } from "@/config/guildBalls";
+import { ballTotal, projectDays, shortDate, type BallData } from "@/config/guildBalls";
 
 // Só roda no navegador (usa canvas e Image). Desenha o cartão do projeto, igual ao gerador de balls da guilda.
 
@@ -199,7 +199,8 @@ function drawCelebrationFrame(x: CanvasRenderingContext2D, W: number, H: number)
   x.stroke();
 }
 
-export type CardCapture = { ball: string; spent: number };
+/** `startedAt` = primeiro post do projeto (dia 1) e `capturedAt` = quando capturou. Sem `startedAt`, o cartão não mostra a duração. */
+export type CardCapture = { ball: string; spent: number; startedAt?: string | null; capturedAt?: string | null };
 
 /** Desenha o cartão do projeto (920 px de largura, em dobro de resolução). Com `capture`, mostra o selo "Capturado" e destaca a ball usada. */
 export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCanvasElement, capture?: CardCapture | null): HTMLCanvasElement {
@@ -280,7 +281,13 @@ export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCa
   if (capture) {
     x.fillStyle = "#3ddc84";
     x.font = "700 16px system-ui,sans-serif";
-    x.fillText(`Capturado na ${capture.ball} · ${fmt(capture.spent)} gastas`, W - P, 168, 440);
+    x.fillText(`Capturado na ${capture.ball} · ${fmt(capture.spent)} gastas`, W - P, 157, 440);
+    const days = capture.startedAt ? projectDays(capture.startedAt, capture.capturedAt ?? new Date().toISOString()) : null;
+    if (days && capture.startedAt) {
+      x.fillStyle = "#a6ecc6";
+      x.font = "600 14px system-ui,sans-serif";
+      x.fillText(`Início ${shortDate(capture.startedAt)} · ${days} ${days === 1 ? "dia" : "dias"} de projeto`, W - P, 179, 440);
+    }
   }
   x.fillStyle = "rgba(255,255,255,.12)";
   x.fillRect(P, 196, W - P * 2, 1.5);

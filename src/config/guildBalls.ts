@@ -16,12 +16,32 @@ export type BallHistoryEntry = { total: number; at: string; by: string | null };
 /** Projeto que fecha com até tantas balls ganha o selo "Sorte grande!" no Discord. */
 export const LUCKY_MAX_BALLS = 100;
 
+const BRASILIA_MS = -3 * 3600_000;
+const dayNumber = (iso: string) => Math.floor((Date.parse(iso) + BRASILIA_MS) / 86_400_000);
+
+/**
+ * Dias de projeto, do primeiro post até a captura. O dia do primeiro post conta como dia 1
+ * (começou e capturou no mesmo dia = 1 dia). Conta dias do calendário de Brasília, não blocos de 24 h.
+ */
+export function projectDays(startIso: string, endIso: string): number | null {
+  if (Number.isNaN(Date.parse(startIso)) || Number.isNaN(Date.parse(endIso))) return null;
+  return Math.max(1, dayNumber(endIso) - dayNumber(startIso) + 1);
+}
+
+/** "25/10", no calendário de Brasília. */
+export function shortDate(iso: string): string {
+  const d = new Date(Date.parse(iso) + BRASILIA_MS);
+  return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 /** Números da caça, mostrados no aviso de captura do Discord. */
 export type CaptureStats = {
   /** Quantas capturas a guilda já registrou (contando esta). */
   number: number | null;
-  /** Dias entre abrir o projeto e capturar (`null` se o projeto nasceu já capturado). */
+  /** Dias de projeto, contando o dia do primeiro post como dia 1 (`null` se o projeto nasceu já capturado). */
   days: number | null;
+  /** Quando saiu o primeiro post do projeto. */
+  startedAt: string | null;
   /** Quantas atualizações o projeto teve antes da captura. */
   updates: number;
   /** Maior projeto (em balls) entre todos os já capturados. */
