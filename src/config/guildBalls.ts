@@ -13,7 +13,28 @@ export type BallData = { pokemon: string; number: number | null; shiny: boolean;
 
 export type BallHistoryEntry = { total: number; at: string; by: string | null };
 
+/** Projeto que fecha com até tantas balls ganha o selo "Sorte grande!" no Discord. */
+export const LUCKY_MAX_BALLS = 100;
+
+/** Números da caça, mostrados no aviso de captura do Discord. */
+export type CaptureStats = {
+  /** Quantas capturas a guilda já registrou (contando esta). */
+  number: number | null;
+  /** Dias entre abrir o projeto e capturar (`null` se o projeto nasceu já capturado). */
+  days: number | null;
+  /** Quantas atualizações o projeto teve antes da captura. */
+  updates: number;
+  /** Maior projeto (em balls) entre todos os já capturados. */
+  record: boolean;
+  lucky: boolean;
+};
+
+/** Como o projeto terminou: capturado, com qual ball e quantas balls foram gastas dessa ball. */
+export type BallCapture = { ball: string; spent: number; at: string; by: string | null };
+
 export type BallProject = BallData & {
+  /** `null` = projeto em andamento. */
+  capture: BallCapture | null;
   id: number;
   total: number;
   /** Arte enviada à mão (data URL). `null` = usar a arte oficial pelo número. */
@@ -61,4 +82,31 @@ export function parseBallData(value: unknown): BallData | null {
     balls.push({ name: clean, qty: qty as number });
   }
   return { pokemon, number, shiny: v.shiny === true, balls };
+}
+
+
+/** O que o jogador confirma ao encerrar um projeto (já lido do texto ou da imagem da mensagem de captura). */
+export type CaptureInput = { projectId: number | null; pokemon: string; number: number | null; shiny: boolean; ball: string; spent: number; capturedAt: string | null };
+
+const cleanText = (value: string) => value.normalize("NFC").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim();
+
+/** Valida o que veio do navegador: `null` se algo estiver fora do formato. */
+export function parseCaptureInput(value: unknown): CaptureInput | null {
+  const v = (value ?? {}) as Record<string, unknown>;
+  if (typeof v.pokemon !== "string" || typeof v.ball !== "string") return null;
+  const pokemon = cleanText(v.pokemon).replace(/^shiny\s+/i, "");
+  const ball = cleanText(v.ball);
+  if (!pokemon || pokemon.length > POKEMON_NAME_MAX || !ball || ball.length > BALL_NAME_MAX) return null;
+  if (!Number.isInteger(v.spent) || (v.spent as number) < 1 || (v.spent as number) > BALL_MAX_QTY) return null;
+  const number = v.number === null || v.number === undefined ? null : Number.isInteger(v.number) && (v.number as number) >= 1 && (v.number as number) <= 99999 ? (v.number as number) : undefined;
+  if (number === undefined) return null;
+  const projectId = v.projectId === null || v.projectId === undefined ? null : Number.isInteger(v.projectId) && (v.projectId as number) > 0 ? (v.projectId as number) : undefined;
+  if (projectId === undefined) return null;
+  let capturedAt: string | null = null;
+  if (typeof v.capturedAt === "string") {
+    const time = Date.parse(v.capturedAt);
+    // Aceita só datas plausíveis: nada no futuro (com folga de relógio) e nada de anos atrás.
+    if (!Number.isNaN(time) && time <= Date.now() + 86_400_000 && time >= Date.now() - 400 * 86_400_000) capturedAt = new Date(time).toISOString();
+  }
+  return { projectId, pokemon, number, shiny: v.shiny === true, ball, spent: v.spent as number, capturedAt };
 }

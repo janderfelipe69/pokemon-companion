@@ -11,6 +11,7 @@ import { ballSlug, ballTotal, type BallData, type BallProject } from "@/config/g
 import { drawBallCard, canvasToPng, loadCardAssets, shrinkSprite } from "@/lib/guild/ballsImage";
 import { parseBallText } from "@/lib/guild/ballsParse";
 import { BallCardCanvas } from "./BallCardCanvas";
+import { CaptureForm } from "./CaptureForm";
 
 type Notice = { kind: "ok" | "error"; text: string };
 const ghostButton = "inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm text-muted hover:text-fg disabled:opacity-40";
@@ -22,8 +23,8 @@ async function readJson(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
 
-async function renderPng(data: BallData, sprite: string | null) {
-  return canvasToPng(drawBallCard(data, await loadCardAssets(data, sprite)));
+async function renderPng(data: BallData, sprite: string | null, capture?: BallProject["capture"]) {
+  return canvasToPng(drawBallCard(data, await loadCardAssets(data, sprite), undefined, capture ? { ball: capture.ball, spent: capture.spent } : null));
 }
 
 function download(blob: Blob, name: string) {
@@ -41,6 +42,22 @@ const delta = (p: BallProject) => (p.history.length > 1 ? p.history[0].total - p
 function Delta({ value }: { value: number | null }) {
   if (!value) return null;
   return <Badge tone={value > 0 ? "teal" : "muted"}>{value > 0 ? "+" : "−"}{fmt(Math.abs(value))}</Badge>;
+}
+
+function ProjectCard({ project: p, onOpen }: { project: BallProject; onOpen: (id: number) => void }) {
+  const capture = p.capture;
+  return (
+    <button type="button" onClick={() => onOpen(p.id)} className={`group rounded-xl border bg-panel p-3 text-left transition-colors hover:bg-raised ${capture ? "border-teal/40 hover:border-teal" : "border-line hover:border-gold/50"}`}>
+      <BallCardCanvas data={p} sprite={p.sprite} capture={capture} />
+      <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
+        <span className="font-semibold">{title(p)}</span>
+        {capture ? <Badge tone="teal">✓ Capturado</Badge> : <Delta value={delta(p)} />}
+      </div>
+      <p className="mt-0.5 px-1 text-xs text-muted">
+        {capture ? <>Capturado na {capture.ball} ({fmt(capture.spent)} gastas){capture.by ? <> por {capture.by}</> : null} em {when(capture.at)}</> : <>{fmt(p.total)} balls · atualizado por {p.updatedBy ?? "?"} em {when(p.updatedAt)}</>}
+      </p>
+    </button>
+  );
 }
 
 /** Projetos de balls: cole os dados do jogo, gere a imagem, salve para a guilda (e avise no Discord). */
@@ -81,9 +98,11 @@ export function BallsView() {
   }, [load]);
 
   // Se o Pokémon já é um projeto salvo com arte enviada à mão, ela continua valendo sem precisar subir de novo.
-  const existing = useMemo(() => (preview && projects ? projects.find((p) => ballSlug(p) === ballSlug(preview)) ?? null : null), [preview, projects]);
+  const existing = useMemo(() => (preview && projects ? projects.find((p) => !p.capture && ballSlug(p) === ballSlug(preview)) ?? null : null), [preview, projects]);
   const sprite = custom ?? existing?.sprite ?? null;
   const open = projects?.find((p) => p.id === openId) ?? null;
+  const running = projects?.filter((p) => !p.capture) ?? [];
+  const caught = projects?.filter((p) => p.capture).sort((a, b) => Date.parse(b.capture!.at) - Date.parse(a.capture!.at)) ?? [];
 
   function generate() {
     const data = parseBallText(text);
@@ -150,7 +169,7 @@ export function BallsView() {
 
   return (
     <>
-      <PageHeader title="Projetos de balls" description="Cole os dados das balls do Pokémon para gerar a imagem. O projeto fica salvo aqui para a guilda acompanhar, e a imagem também vai para o Discord." />
+      <PageHeader title="Projetos de balls" description="Cole os dados das balls do Pokémon para gerar a imagem. O projeto fica salvo aqui para a guilda acompanhar, e a imagem também vai para o Discord. Quando capturar, é só encerrar o projeto mais abaixo." />
 
       <section aria-labelledby="novo" className="mb-10">
         <h2 id="novo" className="mb-3 text-xl font-semibold tracking-tight">Atualizar um projeto</h2>
@@ -199,37 +218,38 @@ export function BallsView() {
         </Card>
       </section>
 
+      {projects && <CaptureForm projects={projects} discord={discord} onDone={load} />}
+
       <section aria-labelledby="galeria">
-        <h2 id="galeria" className="mb-3 text-xl font-semibold tracking-tight">Projetos da guilda</h2>
+        <h2 id="galeria" className="mb-3 text-xl font-semibold tracking-tight">Projetos em andamento</h2>
         {loadError && !projects && <p role="alert" className="text-sm text-red-300">{loadError}</p>}
         {!projects && !loadError && <p className="text-sm text-muted">Carregando...</p>}
-        {projects && projects.length === 0 && <p className="text-sm text-muted">Nenhum projeto salvo ainda. Gere o primeiro acima!</p>}
-        {projects && projects.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {projects.map((p) => (
-              <button key={p.id} type="button" onClick={() => setOpenId(p.id)} className="group rounded-xl border border-line bg-panel p-3 text-left transition-colors hover:border-gold/50 hover:bg-raised">
-                <BallCardCanvas data={p} sprite={p.sprite} />
-                <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
-                  <span className="font-semibold">{title(p)}</span>
-                  <Delta value={delta(p)} />
-                </div>
-                <p className="mt-0.5 px-1 text-xs text-muted">{fmt(p.total)} balls · atualizado por {p.updatedBy ?? "?"} em {when(p.updatedAt)}</p>
-              </button>
-            ))}
-          </div>
-        )}
+        {projects && running.length === 0 && <p className="text-sm text-muted">{projects.length === 0 ? "Nenhum projeto salvo ainda. Gere o primeiro acima!" : "Nenhum projeto em andamento agora."}</p>}
+        {running.length > 0 && <div className="grid gap-4 sm:grid-cols-2">{running.map((p) => <ProjectCard key={p.id} project={p} onOpen={setOpenId} />)}</div>}
       </section>
+
+      {caught.length > 0 && (
+        <section aria-labelledby="capturados" className="mt-10">
+          <h2 id="capturados" className="mb-3 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
+            Capturados <span className="text-sm font-normal tabular-nums text-muted">{caught.length}</span>
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">{caught.map((p) => <ProjectCard key={p.id} project={p} onOpen={setOpenId} />)}</div>
+        </section>
+      )}
 
       <Dialog open={!!open} onClose={() => setOpenId(null)} title={open ? title(open) : "Projeto"} size="wide">
         {open && (
           <div className="p-5 pr-14">
             <h2 className="text-xl font-semibold">{title(open)}</h2>
-            <p className="mt-1 text-sm text-muted">Aberto por {open.createdBy ?? "?"} · {fmt(open.total)} balls</p>
+            <p className="mt-1 text-sm text-muted">
+              Aberto por {open.createdBy ?? "?"} · {fmt(open.total)} balls
+              {open.capture && <> · <span className="text-teal">capturado na {open.capture.ball} ({fmt(open.capture.spent)} gastas) em {when(open.capture.at)}</span></>}
+            </p>
             <div className="mt-4">
-              <BallCardCanvas data={open} sprite={open.sprite} />
+              <BallCardCanvas data={open} sprite={open.sprite} capture={open.capture} />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void renderPng(open, open.sprite).then((b) => download(b, title(open)))} className={ghostButton}>
+              <button type="button" onClick={() => void renderPng(open, open.sprite, open.capture).then((b) => download(b, title(open)))} className={ghostButton}>
                 <Download className="size-4" aria-hidden /> Baixar imagem
               </button>
               {open.createdBy === me && (

@@ -115,8 +115,94 @@ function drawBall(x: CanvasRenderingContext2D, icons: Map<string, HTMLImageEleme
   x.fill();
 }
 
-/** Desenha o cartão do projeto (920 px de largura, em dobro de resolução). */
-export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCanvasElement): HTMLCanvasElement {
+/** Sorteio com semente: o mesmo projeto sempre gera o mesmo confete (o cartão do site e o do Discord ficam iguais). */
+function seeded(text: string) {
+  let h = 2166136261;
+  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return () => {
+    h = (Math.imul(h, 1664525) + 1013904223) >>> 0;
+    return h / 4294967296;
+  };
+}
+
+function star(x: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  x.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (Math.PI / 4) * i - Math.PI / 2;
+    const d = i % 2 === 0 ? r : r * 0.22;
+    x.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d);
+  }
+  x.closePath();
+  x.fill();
+}
+
+/** Fundo da captura: raios de luz atrás do Pokémon, confete e brilhos. Vai por baixo do texto. */
+function drawCelebrationBack(x: CanvasRenderingContext2D, W: number, H: number, seed: string, cx: number, cy: number) {
+  const rand = seeded(seed);
+
+  x.save();
+  x.translate(cx, cy);
+  const rays = x.createRadialGradient(0, 0, 0, 0, 0, 430);
+  rays.addColorStop(0, "rgba(255,226,140,.16)");
+  rays.addColorStop(1, "rgba(255,226,140,0)");
+  for (let i = 0; i < 24; i += 2) {
+    x.fillStyle = rays;
+    x.beginPath();
+    x.moveTo(0, 0);
+    x.arc(0, 0, 430, (Math.PI * 2 * i) / 24, (Math.PI * 2 * (i + 1)) / 24);
+    x.closePath();
+    x.fill();
+  }
+  x.restore();
+
+  const green = x.createRadialGradient(cx, cy, 10, cx, cy, 200);
+  green.addColorStop(0, "rgba(61,220,132,.30)");
+  green.addColorStop(1, "rgba(61,220,132,0)");
+  x.fillStyle = green;
+  x.fillRect(0, 0, 420, 240);
+
+  const colors = ["#3ddc84", "#f5c542", "#6ec1ff", "#ff7aa8", "#ffffff", "#b388ff", "#ff9a3d"];
+  for (let i = 0; i < 90; i++) {
+    // Mais confete no topo e nas laterais; o miolo das balls fica limpo.
+    const px = rand() * W;
+    const py = rand() < 0.8 ? rand() * 200 : rand() * H;
+    if (py > 200 && px > 40 && px < W - 40) continue;
+    x.save();
+    x.translate(px, py);
+    x.rotate(rand() * Math.PI * 2);
+    x.globalAlpha = 0.55 + rand() * 0.4;
+    x.fillStyle = colors[Math.floor(rand() * colors.length)];
+    const size = 4 + rand() * 8;
+    if (rand() < 0.3) {
+      x.beginPath();
+      x.arc(0, 0, size / 2, 0, 7);
+      x.fill();
+    } else {
+      x.fillRect(-size / 2, -size / 4, size, size / 2);
+    }
+    x.restore();
+  }
+
+  x.fillStyle = "rgba(255,255,255,.92)";
+  for (const [dx, dy, r] of [[-120, -70, 13], [125, -55, 10], [-135, 50, 9], [140, 70, 12], [10, -100, 8]]) star(x, cx + dx, cy + dy, r);
+}
+
+/** Moldura dourada e verde por cima de tudo. */
+function drawCelebrationFrame(x: CanvasRenderingContext2D, W: number, H: number) {
+  const g = x.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, "#f5c542");
+  g.addColorStop(0.5, "#3ddc84");
+  g.addColorStop(1, "#f5c542");
+  x.strokeStyle = g;
+  x.lineWidth = 5;
+  roundRect(x, 2.5, 2.5, W - 5, H - 5, 21);
+  x.stroke();
+}
+
+export type CardCapture = { ball: string; spent: number };
+
+/** Desenha o cartão do projeto (920 px de largura, em dobro de resolução). Com `capture`, mostra o selo "Capturado" e destaca a ball usada. */
+export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCanvasElement, capture?: CardCapture | null): HTMLCanvasElement {
   const S = 2, W = 920, P = 30, cols = 4, gap = 14, th = 104;
   const tw = (W - P * 2 - gap * 3) / 4;
   const total = ballTotal(data.balls);
@@ -132,8 +218,8 @@ export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCa
   x.clearRect(0, 0, W, H);
 
   const bg = x.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, "#0d1426");
-  bg.addColorStop(1, "#22305a");
+  bg.addColorStop(0, capture ? "#0a1f1c" : "#0d1426");
+  bg.addColorStop(1, capture ? "#1b4a44" : "#22305a");
   x.fillStyle = bg;
   roundRect(x, 0, 0, W, H, 22);
   x.fill();
@@ -143,6 +229,7 @@ export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCa
   glow.addColorStop(1, "rgba(0,0,0,0)");
   x.fillStyle = glow;
   x.fillRect(0, 0, 380, 230);
+  if (capture) drawCelebrationBack(x, W, H, `${data.pokemon}-${capture.ball}-${capture.spent}`, 150, 105);
 
   const { sprite } = assets;
   if (sprite) {
@@ -172,6 +259,16 @@ export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCa
     x.fillText("✦ SHINY", 286, 171);
   }
 
+  if (capture) {
+    const px = data.shiny ? 380 : 272;
+    x.fillStyle = "#3ddc84";
+    roundRect(x, px, 150, 142, 30, 15);
+    x.fill();
+    x.fillStyle = "#04321a";
+    x.font = "800 14px system-ui,sans-serif";
+    x.fillText("✓ CAPTURADO", px + 14, 170);
+  }
+
   x.textAlign = "right";
   x.fillStyle = "#9fb0d6";
   x.font = "700 15px system-ui,sans-serif";
@@ -180,17 +277,33 @@ export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCa
   x.font = "800 54px system-ui,sans-serif";
   x.fillText(fmt(total), W - P, 124);
   x.fillStyle = "rgba(255,255,255,.12)";
+  if (capture) {
+    x.fillStyle = "#3ddc84";
+    x.font = "700 16px system-ui,sans-serif";
+    x.fillText(`Capturado na ${capture.ball} · ${fmt(capture.spent)} gastas`, W - P, 168, 440);
+  }
+  x.fillStyle = "rgba(255,255,255,.12)";
   x.fillRect(P, 196, W - P * 2, 1.5);
 
   data.balls.forEach((b, i) => {
     const x0 = P + (i % cols) * (tw + gap);
     const y0 = 210 + Math.floor(i / cols) * (th + gap);
     const top = b.qty === max && max > 0;
+    const caught = !!capture && ballKey(b.name) === ballKey(capture.ball);
+    if (caught) {
+      x.save();
+      x.shadowColor = "rgba(61,220,132,.75)";
+      x.shadowBlur = 22;
+      x.fillStyle = "rgba(61,220,132,.16)";
+      roundRect(x, x0, y0, tw, th, 16);
+      x.fill();
+      x.restore();
+    }
     x.fillStyle = "rgba(255,255,255,.06)";
     roundRect(x, x0, y0, tw, th, 16);
     x.fill();
-    x.strokeStyle = top ? "#f5c542" : "rgba(255,255,255,.12)";
-    x.lineWidth = top ? 2 : 1;
+    x.strokeStyle = caught ? "#3ddc84" : top ? "#f5c542" : "rgba(255,255,255,.12)";
+    x.lineWidth = caught ? 2.5 : top ? 2 : 1;
     roundRect(x, x0, y0, tw, th, 16);
     x.stroke();
     drawBall(x, assets.icons, x0 + 42, y0 + th / 2, 25, b.name);
@@ -202,6 +315,7 @@ export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCa
     x.font = "600 14px system-ui,sans-serif";
     x.fillText(`${b.name.replace(/ball/i, "").trim()} Ball`, x0 + 78, y0 + 76, tw - 88);
   });
+  if (capture) drawCelebrationFrame(x, W, H);
   return c;
 }
 
