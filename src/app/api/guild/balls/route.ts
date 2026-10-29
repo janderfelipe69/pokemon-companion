@@ -13,8 +13,6 @@ const fail = (error: string, status = 400) => json({ error }, status);
 const failAny = (e: unknown) => (e instanceof BallsError || e instanceof GuildDataError ? fail(e.message, e instanceof BallsError ? e.status : 500) : fail("Erro interno nos projetos de balls.", 500));
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const SPRITE_PREFIX = "data:image/png;base64,";
-const SPRITE_MAX_CHARS = 250_000;
 
 /** Projetos salvos e se o Discord está configurado. Só para membros. */
 export async function GET() {
@@ -29,7 +27,7 @@ export async function GET() {
 
 /**
  * Salva (ou atualiza) um projeto e posta a imagem no Discord.
- * Formulário: `data` (JSON com Pokémon e balls), `image` (PNG do cartão) e `sprite` (opcional, arte enviada à mão).
+ * Formulário: `data` (JSON com Pokémon e balls) e `image` (PNG do cartão). Não há arte enviada à mão: só vale a arte oficial.
  */
 export async function POST(request: Request) {
   try {
@@ -53,11 +51,8 @@ export async function POST(request: Request) {
     const head = new Uint8Array(await image.slice(0, 8).arrayBuffer());
     if (!PNG_SIGNATURE.every((b, i) => head[i] === b)) return fail("A imagem precisa ser um PNG.");
 
-    const spriteField = form.get("sprite");
-    const sprite = typeof spriteField === "string" && spriteField ? spriteField : null;
-    if (sprite && (!sprite.startsWith(SPRITE_PREFIX) || sprite.length > SPRITE_MAX_CHARS || !/^[A-Za-z0-9+/=]+$/.test(sprite.slice(SPRITE_PREFIX.length)))) return fail("Arte do Pokémon inválida.");
 
-    const saved = await saveProject(me.id, data, sprite);
+    const saved = await saveProject(me.id, data);
     const discord = await postBallsImage({ data, image, by: me.name, previousTotal: saved.previousTotal, created: saved.created });
     return json({ ok: true, ...saved, discord });
   } catch (e) {

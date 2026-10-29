@@ -37,11 +37,11 @@ export const officialArtUrl = (number: number, shiny: boolean) =>
 
 export type CardAssets = { sprite: HTMLImageElement | null; icons: Map<string, HTMLImageElement> };
 
-/** Busca a arte do Pokémon (a enviada à mão ganha da oficial) e os ícones das balls usadas. */
-export async function loadCardAssets(data: BallData, customSprite: string | null): Promise<CardAssets> {
+/** Busca a arte oficial do Pokémon (PokéAPI, pelo número da dex) e os ícones das balls usadas. Não existe arte enviada à mão. */
+export async function loadCardAssets(data: BallData): Promise<CardAssets> {
   const keys = [...new Set(data.balls.map((b) => ballKey(b.name)).filter((k) => ICON_KEYS.includes(k)))];
   const [sprite, ...icons] = await Promise.all([
-    customSprite ? loadImage(customSprite) : data.number ? loadImage(officialArtUrl(data.number, data.shiny), true) : Promise.resolve(null),
+    data.number ? loadImage(officialArtUrl(data.number, data.shiny), true) : Promise.resolve(null),
     ...keys.map((k) => loadImage(`/guild/balls/${k}.png`)),
   ]);
   const map = new Map<string, HTMLImageElement>();
@@ -329,20 +329,3 @@ export function drawBallCard(data: BallData, assets: CardAssets, target?: HTMLCa
 /** O cartão como arquivo PNG (é o que vai para o Discord). */
 export const canvasToPng = (canvas: HTMLCanvasElement) =>
   new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Não foi possível gerar a imagem."))), "image/png"));
-
-/** Reduz uma imagem enviada à mão para no máximo 256 px e devolve como data URL PNG (cabe no banco). */
-export async function shrinkSprite(file: File): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await loadImage(url);
-    if (!img) throw new Error("Não consegui ler essa imagem.");
-    const k = Math.min(1, 256 / Math.max(img.width, img.height));
-    const c = document.createElement("canvas");
-    c.width = Math.max(1, Math.round(img.width * k));
-    c.height = Math.max(1, Math.round(img.height * k));
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL("image/png");
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}

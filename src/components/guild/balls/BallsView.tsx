@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, Download, ImagePlus, Sparkles, Trash2, TrendingUp } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, Sparkles, Trash2, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ballSlug, ballTotal, projectDays, shortDate, type BallData, type BallProject } from "@/config/guildBalls";
-import { drawBallCard, canvasToPng, loadCardAssets, shrinkSprite, type CardCapture } from "@/lib/guild/ballsImage";
+import { drawBallCard, canvasToPng, loadCardAssets, type CardCapture } from "@/lib/guild/ballsImage";
 import { parseBallText } from "@/lib/guild/ballsParse";
 import { BallCardCanvas } from "./BallCardCanvas";
 import { CaptureForm } from "./CaptureForm";
@@ -38,8 +38,8 @@ function duration(p: BallProject): string | null {
   return days && c?.startedAt ? `${days} ${days === 1 ? "dia" : "dias"} de projeto (desde ${shortDate(c.startedAt)})` : null;
 }
 
-async function renderPng(data: BallData, sprite: string | null, capture?: CardCapture | null) {
-  return canvasToPng(drawBallCard(data, await loadCardAssets(data, sprite), undefined, capture ?? null));
+async function renderPng(data: BallData, capture?: CardCapture | null) {
+  return canvasToPng(drawBallCard(data, await loadCardAssets(data), undefined, capture ?? null));
 }
 
 function download(blob: Blob, name: string) {
@@ -63,7 +63,7 @@ function ProjectCard({ project: p, onOpen }: { project: BallProject; onOpen: (id
   const capture = p.capture;
   return (
     <button type="button" onClick={() => onOpen(p.id)} className={`group rounded-xl border bg-panel p-3 text-left transition-colors hover:bg-raised ${capture ? "border-teal/40 hover:border-teal" : "border-line hover:border-gold/50"}`}>
-      <BallCardCanvas data={p} sprite={p.sprite} capture={cardCapture(p)} />
+      <BallCardCanvas data={p} capture={cardCapture(p)} />
       <div className="mt-3 flex flex-wrap items-center gap-2 px-1">
         <span className="font-semibold">{title(p)}</span>
         {capture ? <Badge tone="teal">✓ Capturado</Badge> : <Delta value={delta(p)} />}
@@ -85,7 +85,6 @@ export function BallsView() {
 
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<BallData | null>(null);
-  const [custom, setCustom] = useState<string | null>(null);
   const [artMissing, setArtMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -112,9 +111,8 @@ export function BallsView() {
     return () => window.clearInterval(id);
   }, [load]);
 
-  // Se o Pokémon já é um projeto salvo com arte enviada à mão, ela continua valendo sem precisar subir de novo.
+  // Se o Pokémon já é um projeto aberto da guilda, salvar vira uma nova atualização dele.
   const existing = useMemo(() => (preview && projects ? projects.find((p) => !p.capture && ballSlug(p) === ballSlug(preview)) ?? null : null), [preview, projects]);
-  const sprite = custom ?? existing?.sprite ?? null;
   const open = projects?.find((p) => p.id === openId) ?? null;
   const running = projects?.filter((p) => !p.capture) ?? [];
   const caught = projects?.filter((p) => p.capture).sort((a, b) => Date.parse(b.capture!.at) - Date.parse(a.capture!.at)) ?? [];
@@ -130,25 +128,15 @@ export function BallsView() {
     setPreview(data);
   }
 
-  async function pickSprite(file: File | undefined) {
-    if (!file) return;
-    try {
-      setCustom(await shrinkSprite(file));
-    } catch (e) {
-      setNotice({ kind: "error", text: e instanceof Error ? e.message : "Não consegui ler essa imagem." });
-    }
-  }
-
   async function save() {
     if (!preview) return;
     setBusy(true);
     setNotice(null);
     try {
-      const png = await renderPng(preview, sprite);
+      const png = await renderPng(preview);
       const form = new FormData();
       form.append("data", JSON.stringify(preview));
       form.append("image", png, "projeto.png");
-      if (custom) form.append("sprite", custom);
       const response = await fetch("/api/guild/balls", { method: "POST", body: form });
       const data = await readJson(response);
       if (response.status === 401) router.refresh();
@@ -157,7 +145,6 @@ export function BallsView() {
       setNotice({ kind: data.discord === "failed" ? "error" : "ok", text: `Projeto salvo${discordText}!` });
       setText("");
       setPreview(null);
-      setCustom(null);
       await load();
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : "Erro ao salvar." });
@@ -197,11 +184,6 @@ export function BallsView() {
             <button type="button" onClick={generate} disabled={!text.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40">
               <Sparkles className="size-4" aria-hidden /> Gerar imagem
             </button>
-            <label className={`${ghostButton} cursor-pointer`}>
-              <ImagePlus className="size-4" aria-hidden /> {custom ? "Trocar arte do Pokémon" : "Arte do Pokémon (opcional)"}
-              <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void pickSprite(e.target.files?.[0]); e.target.value = ""; }} />
-            </label>
-            {custom && <button type="button" onClick={() => setCustom(null)} className={ghostButton}>Remover arte</button>}
           </div>
 
           {notice && (
@@ -213,9 +195,9 @@ export function BallsView() {
           {preview && (
             <div className="mt-5">
               <div className="mx-auto max-w-3xl">
-                <BallCardCanvas data={preview} sprite={sprite} onLoaded={(a) => setArtMissing(!a.sprite && (!!preview.number || !!sprite))} />
+                <BallCardCanvas data={preview} onLoaded={(a) => setArtMissing(!a.sprite && !!preview.number)} />
               </div>
-              {artMissing && <p className="mt-2 text-sm text-muted">Não consegui buscar a arte oficial do Pokémon. A imagem funciona assim mesmo; se quiser a arte, suba uma imagem no botão acima.</p>}
+              {artMissing && <p className="mt-2 text-sm text-muted">Não consegui buscar a arte oficial do Pokémon agora. A imagem sai igual, só sem a arte.</p>}
               <p className="mt-3 text-sm text-muted">
                 {existing ? <>Esse Pokémon já é um projeto da guilda ({fmt(existing.total)} balls). Salvar vira uma nova atualização.</> : <>Projeto novo: {title(preview)} · {fmt(ballTotal(preview.balls))} balls.</>}{" "}
                 {discord ? "A imagem também vai para o Discord." : "O Discord ainda não está configurado: só vai ficar salvo no site."}
@@ -224,7 +206,7 @@ export function BallsView() {
                 <button type="button" onClick={() => void save()} disabled={busy} className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40">
                   {busy ? "Salvando..." : "Salvar para a guilda"}
                 </button>
-                <button type="button" disabled={busy} onClick={() => void renderPng(preview, sprite).then((b) => download(b, title(preview)))} className={ghostButton}>
+                <button type="button" disabled={busy} onClick={() => void renderPng(preview).then((b) => download(b, title(preview)))} className={ghostButton}>
                   <Download className="size-4" aria-hidden /> Baixar imagem
                 </button>
               </div>
@@ -261,10 +243,10 @@ export function BallsView() {
               {open.capture && <> · <span className="text-teal">capturado na {open.capture.ball} ({fmt(open.capture.spent)} gastas) em {when(open.capture.at)}{duration(open) ? ` · ${duration(open)}` : ""}</span></>}
             </p>
             <div className="mt-4">
-              <BallCardCanvas data={open} sprite={open.sprite} capture={cardCapture(open)} />
+              <BallCardCanvas data={open} capture={cardCapture(open)} />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void renderPng(open, open.sprite, cardCapture(open)).then((b) => download(b, title(open)))} className={ghostButton}>
+              <button type="button" onClick={() => void renderPng(open, cardCapture(open)).then((b) => download(b, title(open)))} className={ghostButton}>
                 <Download className="size-4" aria-hidden /> Baixar imagem
               </button>
               {open.createdBy === me && (

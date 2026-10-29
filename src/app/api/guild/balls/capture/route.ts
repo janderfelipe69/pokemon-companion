@@ -12,12 +12,10 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 const fail = (error: string, status = 400) => json({ error }, status);
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const SPRITE_PREFIX = "data:image/png;base64,";
-const SPRITE_MAX_CHARS = 250_000;
 
 /**
  * Encerra um projeto como capturado e comemora no Discord.
- * Formulário: `data` (JSON: projeto, Pokémon, ball e balls gastas), `image` (PNG do cartão "Capturado") e `sprite` (opcional).
+ * Formulário: `data` (JSON: projeto, Pokémon, ball e balls gastas) e `image` (PNG do cartão "Capturado").
  */
 export async function POST(request: Request) {
   try {
@@ -40,11 +38,8 @@ export async function POST(request: Request) {
     const head = new Uint8Array(await image.slice(0, 8).arrayBuffer());
     if (!PNG_SIGNATURE.every((b, i) => head[i] === b)) return fail("A imagem precisa ser um PNG.");
 
-    const spriteField = form.get("sprite");
-    const sprite = typeof spriteField === "string" && spriteField ? spriteField : null;
-    if (sprite && (!sprite.startsWith(SPRITE_PREFIX) || sprite.length > SPRITE_MAX_CHARS || !/^[A-Za-z0-9+/=]+$/.test(sprite.slice(SPRITE_PREFIX.length)))) return fail("Arte do Pokémon inválida.");
 
-    const result = await captureProject(me.id, input, sprite);
+    const result = await captureProject(me.id, input);
     const discord = await postCaptureImage({ data: result.data, image, by: me.name, ball: input.ball, spent: input.spent, others: input.balls.filter((b) => b.name !== input.ball), stats: result.stats });
     return json({ ok: true, id: result.id, total: result.total, created: result.created, discord });
   } catch (e) {

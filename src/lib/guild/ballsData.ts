@@ -21,7 +21,7 @@ const translate = (e: DbError): BallsError => {
 };
 
 type ProjectRow = {
-  id: number; pokemon: string; dex_number: number | null; shiny: boolean; total: number; balls: BallData["balls"]; sprite: string | null;
+  id: number; pokemon: string; dex_number: number | null; shiny: boolean; total: number; balls: BallData["balls"];
   created_by: number | null; updated_by: number | null; created_at: string; updated_at: string;
   captured_at: string | null; captured_ball: string | null; captured_spent: number | null; captured_by: number | null;
 };
@@ -31,7 +31,7 @@ type UpdateRow = { project_id: number; member_id: number | null; total: number; 
 export async function listProjects(): Promise<BallProject[]> {
   const db = createAdminClient();
   const [projects, updates, members] = await Promise.all([
-    db.from("guild_ball_projects").select("id, pokemon, dex_number, shiny, total, balls, sprite, created_by, updated_by, created_at, updated_at, captured_at, captured_ball, captured_spent, captured_by").order("updated_at", { ascending: false }),
+    db.from("guild_ball_projects").select("id, pokemon, dex_number, shiny, total, balls, created_by, updated_by, created_at, updated_at, captured_at, captured_ball, captured_spent, captured_by").order("updated_at", { ascending: false }),
     db.from("guild_ball_updates").select("project_id, member_id, total, created_at").order("created_at", { ascending: false }).limit(1500),
     db.from("guild_members").select("id, name"),
   ]);
@@ -46,7 +46,7 @@ export async function listProjects(): Promise<BallProject[]> {
   }
 
   return ((projects.data ?? []) as ProjectRow[]).map((p) => ({
-    id: p.id, pokemon: p.pokemon, number: p.dex_number, shiny: p.shiny, balls: p.balls, total: Number(p.total), sprite: p.sprite,
+    id: p.id, pokemon: p.pokemon, number: p.dex_number, shiny: p.shiny, balls: p.balls, total: Number(p.total),
     createdBy: p.created_by ? (names.get(p.created_by) ?? null) : null, updatedBy: p.updated_by ? (names.get(p.updated_by) ?? null) : null,
     createdAt: p.created_at, updatedAt: p.updated_at, history: history.get(p.id) ?? [],
     capture: p.captured_at && p.captured_ball ? { ball: p.captured_ball, spent: Number(p.captured_spent ?? 0), at: p.captured_at, by: p.captured_by ? (names.get(p.captured_by) ?? null) : null } : null,
@@ -56,7 +56,7 @@ export async function listProjects(): Promise<BallProject[]> {
 export type SaveResult = { id: number; total: number; previousTotal: number | null; created: boolean };
 
 /** Cria o projeto do Pokémon ou atualiza o que já existe (mesmo nome + número + shiny), e guarda a atualização no histórico. */
-export async function saveProject(memberId: number, data: BallData, sprite: string | null): Promise<SaveResult> {
+export async function saveProject(memberId: number, data: BallData): Promise<SaveResult> {
   const db = createAdminClient();
   const slug = ballSlug(data);
   const total = ballTotal(data.balls);
@@ -69,10 +69,10 @@ export async function saveProject(memberId: number, data: BallData, sprite: stri
   let id: number;
   if (existing) {
     id = existing.id;
-    const { error } = await db.from("guild_ball_projects").update({ pokemon: data.pokemon, dex_number: data.number, shiny: data.shiny, total, balls: data.balls, ...(sprite ? { sprite } : {}), updated_by: memberId, updated_at: now }).eq("id", id);
+    const { error } = await db.from("guild_ball_projects").update({ pokemon: data.pokemon, dex_number: data.number, shiny: data.shiny, total, balls: data.balls, updated_by: memberId, updated_at: now }).eq("id", id);
     if (error) throw translate(error);
   } else {
-    const { data: created, error } = await db.from("guild_ball_projects").insert({ slug, pokemon: data.pokemon, dex_number: data.number, shiny: data.shiny, total, balls: data.balls, sprite, created_by: memberId, updated_by: memberId, updated_at: now }).select("id").single();
+    const { data: created, error } = await db.from("guild_ball_projects").insert({ slug, pokemon: data.pokemon, dex_number: data.number, shiny: data.shiny, total, balls: data.balls, created_by: memberId, updated_by: memberId, updated_at: now }).select("id").single();
     if (error) throw translate(error);
     id = (created as { id: number }).id;
   }
@@ -126,7 +126,7 @@ async function captureStats(id: number, createdAt: string | null, capturedAt: st
  * a quantidade de cada ball listada no projeto passa a ser a que o jogo informou (e as que ainda não estavam no projeto são incluídas).
  * Sem projeto, cria um já encerrado com as balls da mensagem. O projeto capturado sai do "slug" normal, para o mesmo Pokémon poder ter um projeto novo depois.
  */
-export async function captureProject(memberId: number, input: CaptureInput, sprite: string | null): Promise<CaptureResult> {
+export async function captureProject(memberId: number, input: CaptureInput): Promise<CaptureResult> {
   const db = createAdminClient();
   const now = new Date().toISOString();
   const capturedAt = input.capturedAt ?? now;
@@ -157,7 +157,7 @@ export async function captureProject(memberId: number, input: CaptureInput, spri
     const total = ballTotal(balls);
 
     const { error } = await db.from("guild_ball_projects").update({
-      slug: `${row.slug}-c${row.id}`.slice(0, 80), balls, total, ...(sprite ? { sprite } : {}), captured_at: capturedAt, captured_ball: input.ball, captured_spent: input.spent,
+      slug: `${row.slug}-c${row.id}`.slice(0, 80), balls, total, captured_at: capturedAt, captured_ball: input.ball, captured_spent: input.spent,
       captured_by: memberId, updated_by: memberId, updated_at: now,
     }).eq("id", row.id);
     if (error) throw translate(error);
@@ -170,7 +170,7 @@ export async function captureProject(memberId: number, input: CaptureInput, spri
   const total = ballTotal(balls);
   const slug = `${ballSlug(input)}-c${Date.now().toString(36)}`.slice(0, 80);
   const { data: created, error } = await db.from("guild_ball_projects").insert({
-    slug, pokemon: input.pokemon, dex_number: input.number, shiny: input.shiny, total, balls, sprite, created_by: memberId, updated_by: memberId, updated_at: now,
+    slug, pokemon: input.pokemon, dex_number: input.number, shiny: input.shiny, total, balls, created_by: memberId, updated_by: memberId, updated_at: now,
     captured_at: capturedAt, captured_ball: input.ball, captured_spent: input.spent, captured_by: memberId,
   }).select("id").single();
   if (error) throw translate(error);

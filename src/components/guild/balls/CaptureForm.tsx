@@ -116,7 +116,7 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
         setLookedUp({ name: info.pokemon, number: dex });
       }
       const data: BallData = { ...final, number: dex };
-      const png = await canvasToPng(drawBallCard(data, await loadCardAssets(data, project?.sprite ?? null), undefined, capture));
+      const png = await canvasToPng(drawBallCard(data, await loadCardAssets(data), undefined, capture));
       const form = new FormData();
       form.append("data", JSON.stringify({ projectId, pokemon: info.pokemon, number: dex, shiny: info.shiny, ball, balls: info.balls, capturedAt: info.at }));
       form.append("image", png, "projeto.png");
@@ -224,7 +224,7 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
             {showPreview && (
               <>
                 <div className="mx-auto max-w-3xl">
-                  <BallCardCanvas data={final!} sprite={project?.sprite ?? null} capture={capture} />
+                  <BallCardCanvas data={final!} capture={capture} />
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button type="button" onClick={() => void confirm()} disabled={busy} className="rounded-lg bg-teal px-5 py-2.5 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40">

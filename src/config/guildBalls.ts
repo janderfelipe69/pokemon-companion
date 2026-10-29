@@ -57,8 +57,6 @@ export type BallProject = BallData & {
   capture: BallCapture | null;
   id: number;
   total: number;
-  /** Arte enviada à mão (data URL). `null` = usar a arte oficial pelo número. */
-  sprite: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
