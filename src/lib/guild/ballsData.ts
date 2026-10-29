@@ -123,8 +123,8 @@ async function captureStats(id: number, createdAt: string | null, capturedAt: st
 
 /**
  * Encerra um projeto como capturado. A mensagem de captura é a palavra final sobre a ball usada:
- * a quantidade dessa ball no projeto passa a ser a que o jogo informou (e, se a ball ainda não estava no projeto, ela é incluída).
- * Sem projeto, cria um já encerrado com só essa ball. O projeto capturado sai do "slug" normal, para o mesmo Pokémon poder ter um projeto novo depois.
+ * a quantidade de cada ball listada no projeto passa a ser a que o jogo informou (e as que ainda não estavam no projeto são incluídas).
+ * Sem projeto, cria um já encerrado com as balls da mensagem. O projeto capturado sai do "slug" normal, para o mesmo Pokémon poder ter um projeto novo depois.
  */
 export async function captureProject(memberId: number, input: CaptureInput, sprite: string | null): Promise<CaptureResult> {
   const db = createAdminClient();
@@ -146,11 +146,14 @@ export async function captureProject(memberId: number, input: CaptureInput, spri
     if (!row) throw new BallsError("Esse projeto não existe mais.", 404);
     if (row.captured_at) throw new BallsError("Esse projeto já foi marcado como capturado.", 409);
 
+    // A mensagem de captura é a palavra final sobre as balls gastas: cada ball listada passa a valer o que o jogo informou.
     const balls = row.balls.map((b) => ({ ...b }));
-    const same = balls.find((b) => b.name.toLowerCase() === input.ball.toLowerCase());
-    if (same) same.qty = input.spent;
-    else if (balls.length >= BALL_MAX_KINDS) throw new BallsError("O projeto já tem balls demais para incluir mais uma.");
-    else balls.push({ name: input.ball, qty: input.spent });
+    for (const spent of input.balls) {
+      const same = balls.find((b) => b.name.toLowerCase() === spent.name.toLowerCase());
+      if (same) same.qty = spent.qty;
+      else balls.push({ ...spent });
+    }
+    if (balls.length > BALL_MAX_KINDS) throw new BallsError("O projeto já tem balls demais para incluir as da captura.");
     const total = ballTotal(balls);
 
     const { error } = await db.from("guild_ball_projects").update({
@@ -163,15 +166,16 @@ export async function captureProject(memberId: number, input: CaptureInput, spri
     return { id: row.id, total, created: false, data: { pokemon: row.pokemon, number: row.dex_number, shiny: row.shiny, balls }, stats: await captureStats(row.id, row.created_at, capturedAt, total) };
   }
 
-  const balls = [{ name: input.ball, qty: input.spent }];
+  const balls = input.balls.map((b) => ({ ...b }));
+  const total = ballTotal(balls);
   const slug = `${ballSlug(input)}-c${Date.now().toString(36)}`.slice(0, 80);
   const { data: created, error } = await db.from("guild_ball_projects").insert({
-    slug, pokemon: input.pokemon, dex_number: input.number, shiny: input.shiny, total: input.spent, balls, sprite, created_by: memberId, updated_by: memberId, updated_at: now,
+    slug, pokemon: input.pokemon, dex_number: input.number, shiny: input.shiny, total, balls, sprite, created_by: memberId, updated_by: memberId, updated_at: now,
     captured_at: capturedAt, captured_ball: input.ball, captured_spent: input.spent, captured_by: memberId,
   }).select("id").single();
   if (error) throw translate(error);
   const id = (created as { id: number }).id;
-  const { error: historyError } = await db.from("guild_ball_updates").insert({ project_id: id, member_id: memberId, total: input.spent, balls });
+  const { error: historyError } = await db.from("guild_ball_updates").insert({ project_id: id, member_id: memberId, total, balls });
   if (historyError) throw translate(historyError);
-  return { id, total: input.spent, created: true, data: { pokemon: input.pokemon, number: input.number, shiny: input.shiny, balls }, stats: await captureStats(id, null, capturedAt, input.spent) };
+  return { id, total, created: true, data: { pokemon: input.pokemon, number: input.number, shiny: input.shiny, balls }, stats: await captureStats(id, null, capturedAt, total) };
 }

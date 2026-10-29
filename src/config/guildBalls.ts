@@ -105,19 +105,36 @@ export function parseBallData(value: unknown): BallData | null {
 }
 
 
-/** O que o jogador confirma ao encerrar um projeto (já lido do texto ou da imagem da mensagem de captura). */
-export type CaptureInput = { projectId: number | null; pokemon: string; number: number | null; shiny: boolean; ball: string; spent: number; capturedAt: string | null };
+/**
+ * O que o jogador confirma ao encerrar um projeto (lido do texto ou da imagem da mensagem de captura).
+ * `balls` são todas as balls gastas na caça, `ball` é a que fez a captura e `spent` é a quantidade dela (calculada aqui, não vem do navegador).
+ */
+export type CaptureInput = { projectId: number | null; pokemon: string; number: number | null; shiny: boolean; ball: string; spent: number; balls: BallCount[]; capturedAt: string | null };
 
 const cleanText = (value: string) => value.normalize("NFC").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim();
 
 /** Valida o que veio do navegador: `null` se algo estiver fora do formato. */
 export function parseCaptureInput(value: unknown): CaptureInput | null {
   const v = (value ?? {}) as Record<string, unknown>;
-  if (typeof v.pokemon !== "string" || typeof v.ball !== "string") return null;
+  if (typeof v.pokemon !== "string" || typeof v.ball !== "string" || !Array.isArray(v.balls)) return null;
   const pokemon = cleanText(v.pokemon).replace(/^shiny\s+/i, "");
-  const ball = cleanText(v.ball);
-  if (!pokemon || pokemon.length > POKEMON_NAME_MAX || !ball || ball.length > BALL_NAME_MAX) return null;
-  if (!Number.isInteger(v.spent) || (v.spent as number) < 1 || (v.spent as number) > BALL_MAX_QTY) return null;
+  if (!pokemon || pokemon.length > POKEMON_NAME_MAX) return null;
+  if (v.balls.length === 0 || v.balls.length > BALL_MAX_KINDS) return null;
+
+  const seen = new Set<string>();
+  const balls: BallCount[] = [];
+  for (const item of v.balls) {
+    const { name, qty } = (item ?? {}) as { name?: unknown; qty?: unknown };
+    if (typeof name !== "string" || !Number.isInteger(qty) || (qty as number) < 1 || (qty as number) > BALL_MAX_QTY) return null;
+    const clean = cleanText(name);
+    if (!clean || clean.length > BALL_NAME_MAX || seen.has(clean.toLowerCase())) return null;
+    seen.add(clean.toLowerCase());
+    balls.push({ name: clean, qty: qty as number });
+  }
+  // A ball da captura tem que ser uma das gastas; a quantidade vem da lista.
+  const caught = balls.find((b) => b.name.toLowerCase() === cleanText(v.ball as string).toLowerCase());
+  if (!caught) return null;
+
   const number = v.number === null || v.number === undefined ? null : Number.isInteger(v.number) && (v.number as number) >= 1 && (v.number as number) <= 99999 ? (v.number as number) : undefined;
   if (number === undefined) return null;
   const projectId = v.projectId === null || v.projectId === undefined ? null : Number.isInteger(v.projectId) && (v.projectId as number) > 0 ? (v.projectId as number) : undefined;
@@ -128,5 +145,5 @@ export function parseCaptureInput(value: unknown): CaptureInput | null {
     // Aceita só datas plausíveis: nada no futuro (com folga de relógio) e nada de anos atrás.
     if (!Number.isNaN(time) && time <= Date.now() + 86_400_000 && time >= Date.now() - 400 * 86_400_000) capturedAt = new Date(time).toISOString();
   }
-  return { projectId, pokemon, number, shiny: v.shiny === true, ball, spent: v.spent as number, capturedAt };
+  return { projectId, pokemon, number, shiny: v.shiny === true, ball: caught.name, spent: caught.qty, balls, capturedAt };
 }

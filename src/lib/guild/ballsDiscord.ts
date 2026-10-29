@@ -1,5 +1,5 @@
 import "server-only";
-import { ballTotal, shortDate, type BallData, type CaptureStats } from "@/config/guildBalls";
+import { ballTotal, shortDate, type BallCount, type BallData, type CaptureStats } from "@/config/guildBalls";
 import { esc, siteUrl, WEBHOOK_RE } from "./discord";
 
 const BOT_NAME = "Projetos da Guilda";
@@ -63,12 +63,13 @@ export async function postBallsImage(options: { data: BallData; image: Blob; by:
 }
 
 /** Posta a comemoração da captura: projeto encerrado, ball usada, total gasto e os números da caça. */
-export async function postCaptureImage(options: { data: BallData; image: Blob; by: string; ball: string; spent: number; stats: CaptureStats | null }): Promise<DiscordOutcome> {
-  const { data, image, by, ball, spent, stats } = options;
+export async function postCaptureImage(options: { data: BallData; image: Blob; by: string; ball: string; spent: number; others?: BallCount[]; stats: CaptureStats | null }): Promise<DiscordOutcome> {
+  const { data, image, by, ball, spent, others = [], stats } = options;
   const link = siteUrl();
   const total = ballTotal(data.balls);
 
   const lines = [`**${esc(by)}** capturou na **${esc(ball)}** depois de gastar **${fmt(spent)}** ${esc(ball)}s.`, `Total do projeto: **${fmt(total)}** balls.`];
+  if (others.length > 0) lines.push(`Também usou: ${others.map((b) => `${fmt(b.qty)} ${esc(b.name)}${b.qty === 1 ? "" : "s"}`).join(", ")}.`);
   if (stats?.record) lines.push("", "🏆 **Recorde da guilda!** É o maior projeto já capturado.");
   if (stats?.lucky) lines.push("", `🍀 **Sorte grande!** Capturou com só ${fmt(total)} balls.`);
 

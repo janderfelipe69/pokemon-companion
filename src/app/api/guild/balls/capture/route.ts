@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (sprite && (!sprite.startsWith(SPRITE_PREFIX) || sprite.length > SPRITE_MAX_CHARS || !/^[A-Za-z0-9+/=]+$/.test(sprite.slice(SPRITE_PREFIX.length)))) return fail("Arte do Pokémon inválida.");
 
     const result = await captureProject(me.id, input, sprite);
-    const discord = await postCaptureImage({ data: result.data, image, by: me.name, ball: input.ball, spent: input.spent, stats: result.stats });
+    const discord = await postCaptureImage({ data: result.data, image, by: me.name, ball: input.ball, spent: input.spent, others: input.balls.filter((b) => b.name !== input.ball), stats: result.stats });
     return json({ ok: true, id: result.id, total: result.total, created: result.created, discord });
   } catch (e) {
     if (e instanceof BallsError) return fail(e.message, e.status);
