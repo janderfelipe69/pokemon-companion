@@ -3,7 +3,7 @@
 import { useMemo, useState, type ClipboardEvent } from "react";
 import { AlertCircle, CheckCircle2, ImagePlus, PartyPopper } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { ballTotal, projectDays, shortDate, type BallCount, type BallData, type BallProject } from "@/config/guildBalls";
+import { ballTotal, baseSpecies, projectDays, shortDate, type BallCount, type BallData, type BallProject } from "@/config/guildBalls";
 import { canvasToPng, drawBallCard, loadCardAssets, type CardCapture } from "@/lib/guild/ballsImage";
 import { parseCaptureText, sameName, type CaptureInfo } from "@/lib/guild/captureParse";
 import { BallCardCanvas } from "./BallCardCanvas";
@@ -34,7 +34,8 @@ function afterCapture(project: BallProject | null, info: CaptureInfo, number: nu
     if (same) same.qty = spent.qty;
     else balls.push({ ...spent });
   }
-  return { pokemon: project.pokemon, number: project.number, shiny: project.shiny, balls };
+  // Forma sorteada (Smeargle Flying): o projeto é do Smeargle, mas o cartão leva o nome da forma capturada.
+  return { pokemon: info.pokemon, number: project.number ?? number, shiny: project.shiny, balls };
 }
 
 /** O que muda no projeto: "Premier Ball 634 → 685" e "Sora Ball (nova) 13". */
@@ -112,7 +113,7 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
       // Sem projeto e sem número da dex: tenta achar o número só para a arte do Pokémon.
       let dex = number;
       if (!project && dex === null) {
-        dex = await lookupDexNumber(info.pokemon);
+        dex = await lookupDexNumber(baseSpecies(info.pokemon));
         setLookedUp({ name: info.pokemon, number: dex });
       }
       const data: BallData = { ...final, number: dex };
@@ -204,7 +205,8 @@ export function CaptureForm({ projects, discord, onDone }: { projects: BallProje
                 {project && (
                   <div className="text-muted">
                     <p>
-                      Vai encerrar o projeto <b className="text-fg">{project.pokemon}{project.number ? ` #${project.number}` : ""}</b>. O jogo informou estas quantidades, que passam a valer:
+                      Vai encerrar o projeto <b className="text-fg">{project.pokemon}{project.number ? ` #${project.number}` : ""}</b>
+                      {project.pokemon.toLowerCase() !== info.pokemon.toLowerCase() && <>, que passa a se chamar <b className="text-fg">{info.pokemon}</b> (a forma capturada)</>}. O jogo informou estas quantidades, que passam a valer:
                     </p>
                     <ul className="my-1.5 ml-4 list-disc">
                       {changes.map((c) => (

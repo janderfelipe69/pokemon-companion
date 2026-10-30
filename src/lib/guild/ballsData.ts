@@ -1,5 +1,5 @@
 import "server-only";
-import { BALL_HISTORY_LIMIT, BALL_MAX_KINDS, LUCKY_MAX_BALLS, ballSlug, projectDays, ballTotal, type BallData, type BallProject, type CaptureInput, type CaptureStats } from "@/config/guildBalls";
+import { BALL_HISTORY_LIMIT, BALL_MAX_KINDS, LUCKY_MAX_BALLS, baseSpecies, ballSlug, projectDays, ballTotal, type BallData, type BallProject, type CaptureInput, type CaptureStats } from "@/config/guildBalls";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSetupMissing } from "./boostData";
 
@@ -134,7 +134,7 @@ export async function captureProject(memberId: number, input: CaptureInput): Pro
 
   // O jogador não escolheu projeto: se já existe um aberto do mesmo Pokémon, usa ele em vez de duplicar.
   if (projectId === null) {
-    const open = await db.from("guild_ball_projects").select("id").eq("slug", ballSlug(input)).is("captured_at", null).maybeSingle();
+    const open = await db.from("guild_ball_projects").select("id").eq("slug", ballSlug({ ...input, pokemon: baseSpecies(input.pokemon) })).is("captured_at", null).maybeSingle();
     if (open.error) throw translate(open.error);
     projectId = (open.data as { id: number } | null)?.id ?? null;
   }
@@ -156,14 +156,16 @@ export async function captureProject(memberId: number, input: CaptureInput): Pro
     if (balls.length > BALL_MAX_KINDS) throw new BallsError("O projeto já tem balls demais para incluir as da captura.");
     const total = ballTotal(balls);
 
+    // Forma sorteada: "Smeargle" vira "Smeargle Flying". Só renomeia se for a mesma espécie, para uma captura não trocar o nome de um projeto que não tem a ver.
+    const pokemon = baseSpecies(input.pokemon).toLowerCase() === baseSpecies(row.pokemon).toLowerCase() ? input.pokemon : row.pokemon;
     const { error } = await db.from("guild_ball_projects").update({
-      slug: `${row.slug}-c${row.id}`.slice(0, 80), balls, total, captured_at: capturedAt, captured_ball: input.ball, captured_spent: input.spent,
+      pokemon, dex_number: row.dex_number ?? input.number, slug: `${row.slug}-c${row.id}`.slice(0, 80), balls, total, captured_at: capturedAt, captured_ball: input.ball, captured_spent: input.spent,
       captured_by: memberId, updated_by: memberId, updated_at: now,
     }).eq("id", row.id);
     if (error) throw translate(error);
     const { error: historyError } = await db.from("guild_ball_updates").insert({ project_id: row.id, member_id: memberId, total, balls });
     if (historyError) throw translate(historyError);
-    return { id: row.id, total, created: false, data: { pokemon: row.pokemon, number: row.dex_number, shiny: row.shiny, balls }, stats: await captureStats(row.id, row.created_at, capturedAt, total) };
+    return { id: row.id, total, created: false, data: { pokemon, number: row.dex_number ?? input.number, shiny: row.shiny, balls }, stats: await captureStats(row.id, row.created_at, capturedAt, total) };
   }
 
   const balls = input.balls.map((b) => ({ ...b }));

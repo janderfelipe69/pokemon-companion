@@ -13,6 +13,23 @@ export type BallData = { pokemon: string; number: number | null; shiny: boolean;
 
 export type BallHistoryEntry = { total: number; at: string; by: string | null };
 
+/**
+ * Espécies em que a captura vem com uma forma sorteada: o projeto é da espécie ("Smeargle", e as balls contam para ele),
+ * mas a mensagem de captura traz a forma ("Smeargle Flying", "Smeargle Fire"...). Para incluir outra espécie assim, é só somar o nome aqui.
+ */
+export const RANDOM_FORM_SPECIES = ["Smeargle"];
+
+/** "Smeargle Flying" → "Smeargle" (a espécie do projeto e da arte). Qualquer outro nome volta como está. */
+export function baseSpecies(name: string): string {
+  const clean = name.trim();
+  const lower = clean.toLowerCase();
+  for (const species of RANDOM_FORM_SPECIES) {
+    const s = species.toLowerCase();
+    if (lower === s || lower.startsWith(`${s} `)) return species;
+  }
+  return clean;
+}
+
 /** Projeto que fecha com até tantas balls ganha o selo "Sorte grande!" no Discord. */
 export const LUCKY_MAX_BALLS = 100;
 

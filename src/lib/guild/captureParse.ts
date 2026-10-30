@@ -1,4 +1,4 @@
-import { BALL_NAME_MAX, POKEMON_NAME_MAX, type BallCount } from "@/config/guildBalls";
+import { BALL_NAME_MAX, POKEMON_NAME_MAX, baseSpecies, type BallCount } from "@/config/guildBalls";
 
 /** O que a mensagem de captura do jogo diz. */
 export type CaptureInfo = {
@@ -77,8 +77,8 @@ export function parseCaptureText(raw: string): CaptureInfo | null {
   return { pokemon: titleCase(pokemon), shiny, balls, ball, choices, at: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null };
 }
 
-/** Compara nomes de Pokémon sem acento, sem "Shiny" e sem pontuação. */
+/** Compara nomes de Pokémon sem acento, sem "Shiny" e sem pontuação. "Smeargle Flying" e "Smeargle" contam como o mesmo (ver `RANDOM_FORM_SPECIES`). */
 export const sameName = (a: string, b: string) => {
-  const key = (t: string) => strip(t).toLowerCase().replace(/^shiny\s+/, "").replace(/[^a-z0-9]/g, "");
+  const key = (t: string) => strip(baseSpecies(t.replace(/^shiny\s+/i, ""))).toLowerCase().replace(/[^a-z0-9]/g, "");
   return key(a) === key(b);
 };
