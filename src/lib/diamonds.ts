@@ -13,6 +13,8 @@ export type Trade = {
   unitPrice: number;
   tradedAt: string;
   note: string | null;
+  /** Solicitação de onde veio este lançamento (quando foi criado ao confirmar uma). */
+  orderId?: number | null;
 };
 
 export type TradeCalc = Trade & {
@@ -172,3 +174,63 @@ export function fmtShort(n: number): string {
 
 /** "+1.500.000" / "−300.000": com sinal, para lucro e saldo. */
 export const fmtSigned = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${fmt(Math.abs(n))}`;
+
+// ---------- solicitações (ordens) ----------
+
+export type OrderStatus = "open" | "filled" | "cancelled";
+
+/** Uma solicitação no market: o que você pediu, por quanto, e o quanto já foi executado. */
+export type Order = {
+  id: number;
+  cycleId: number;
+  kind: "buy" | "sell";
+  /** Quantidade pedida no total. */
+  quantity: number;
+  /** Quanto já foi executado (confirmado). */
+  filled: number;
+  /** Valor atual de cada dd (pode ser alterado). */
+  unitPrice: number;
+  /** Valor com que a solicitação nasceu. */
+  initialPrice: number;
+  status: OrderStatus;
+  note: string | null;
+  createdAt: string;
+  closedAt: string | null;
+};
+
+/** Quanto ainda falta executar. */
+export const orderLeft = (o: Pick<Order, "quantity" | "filled">) => o.quantity - o.filled;
+
+export type OrdersSummary = {
+  buyQty: number;
+  buyValue: number;
+  sellQty: number;
+  sellValue: number;
+  /** Estoque que já está prometido em solicitações de venda abertas. */
+  committed: number;
+  /** Estoque que sobra para novas vendas (pode ficar negativo se as solicitações passam do estoque). */
+  free: number;
+};
+
+/** Totais das solicitações abertas, e o estoque livre depois de descontar o que já está à venda. */
+export function summarizeOrders(open: Order[], stock: number): OrdersSummary {
+  let buyQty = 0, buyValue = 0, sellQty = 0, sellValue = 0;
+  for (const o of open) {
+    const left = orderLeft(o);
+    if (o.kind === "buy") {
+      buyQty += left;
+      buyValue += left * o.unitPrice;
+    } else {
+      sellQty += left;
+      sellValue += left * o.unitPrice;
+    }
+  }
+  return { buyQty, buyValue, sellQty, sellValue, committed: sellQty, free: stock - sellQty };
+}
+
+/** ISO → valor do campo datetime-local (no relógio do navegador). */
+export function toLocalInput(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

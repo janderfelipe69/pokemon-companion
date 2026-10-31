@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, AlertTriangle, CheckCircle2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
+import { DiamondOrders } from "./DiamondOrders";
 import {
-  computeLedger, filterTrades, fmt, fmtShort, fmtSigned, parseAmount, periodRange, summarize,
-  type KindFilter, type Period, type Trade, type TradeCalc, type TradeKind,
+  computeLedger, filterTrades, fmt, fmtShort, fmtSigned, parseAmount, periodRange, summarize, toLocalInput,
+  type KindFilter, type Order, type Period, type Trade, type TradeCalc, type TradeKind,
 } from "@/lib/diamonds";
 
 type Cycle = { id: number; startedAt: string; endedAt: string | null };
@@ -34,12 +35,6 @@ async function readJson(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
-/** ISO → valor do campo datetime-local (no relógio do navegador). */
-const toLocalInput = (iso: string | Date) => {
-  const d = typeof iso === "string" ? new Date(iso) : iso;
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
 const when = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 const day = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
@@ -60,7 +55,7 @@ const KIND_STYLE: Record<TradeKind, string> = { buy: "border-gold/40 bg-gold/10 
 
 /** Controle de diamantes: o que foi gasto comprando, o que entrou vendendo, o saldo, o lucro e o estoque. Só no painel do admin. */
 export function DiamondsManager() {
-  const [data, setData] = useState<{ cycles: Cycle[]; trades: Trade[] } | null>(null);
+  const [data, setData] = useState<{ cycles: Cycle[]; trades: Trade[]; orders: Order[] } | null>(null);
   const [loadError, setLoadError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,7 +82,7 @@ export function DiamondsManager() {
       const response = await fetch("/api/admin/diamonds", { cache: "no-store" });
       const body = await readJson(response);
       if (!response.ok) throw new Error(String(body.error || "Não foi possível carregar o controle de diamantes."));
-      const next = { cycles: body.cycles as Cycle[], trades: body.trades as Trade[] };
+      const next = { cycles: body.cycles as Cycle[], trades: body.trades as Trade[], orders: (body.orders as Order[]) ?? [] };
       setData(next);
       setLoadError("");
       // Primeira carga (ou o ciclo selecionado sumiu): vai para o ciclo aberto.
@@ -138,21 +133,27 @@ export function DiamondsManager() {
     document.getElementById("diamantes-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
-  async function post(body: Record<string, unknown>): Promise<boolean> {
+  /** Chama a API e devolve o texto do erro, ou `null` se deu certo (e já recarrega os dados). */
+  async function call(body: Record<string, unknown>): Promise<string | null> {
     setBusy(true);
-    setNotice(null);
     try {
       const response = await fetch("/api/admin/diamonds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const result = await readJson(response);
-      if (!response.ok) throw new Error(String(result.error || "Não foi possível concluir."));
+      if (!response.ok) return String(result.error || "Não foi possível concluir.");
       await load();
-      return true;
+      return null;
     } catch (e) {
-      setNotice({ kind: "error", text: e instanceof Error ? e.message : "Erro ao enviar." });
-      return false;
+      return e instanceof Error ? e.message : "Erro ao enviar.";
     } finally {
       setBusy(false);
     }
+  }
+
+  async function post(body: Record<string, unknown>): Promise<boolean> {
+    setNotice(null);
+    const error = await call(body);
+    if (error) setNotice({ kind: "error", text: error });
+    return !error;
   }
 
   async function submit() {
@@ -276,6 +277,9 @@ export function DiamondsManager() {
             </p>
           )}
 
+          {/* Solicitações no market: só no balanço atual (as abertas sempre vivem nele) */}
+          {isOpen && <DiamondOrders orders={data.orders.filter((o) => o.cycleId === cycle.id)} stock={summarize([], ledger).stock} avgCost={summarize([], ledger).avgCost} busy={busy} call={call} />}
+
           {/* Registrar */}
           {isOpen && (
             <Card className="space-y-4" >
@@ -342,7 +346,7 @@ export function DiamondsManager() {
                         <td className={`px-3 py-2 text-right tabular-nums ${t.profit !== null ? tone(t.profit) : "text-muted"}`} title={t.oversold > 0 ? `${fmt(t.oversold)} dd sem estoque` : undefined}>
                           {t.profit !== null ? `${fmtSigned(t.profit)}${t.oversold > 0 ? " ⚠" : ""}` : "—"}
                         </td>
-                        <td className="max-w-48 truncate px-3 py-2 text-muted" title={t.note ?? undefined}>{t.note ?? ""}</td>
+                        <td className="max-w-48 truncate px-3 py-2 text-muted" title={t.note ?? undefined}>{t.orderId ? <span className="mr-1.5 rounded-full border border-line px-1.5 py-0.5 text-[10px]">solicitação</span> : null}{t.note ?? ""}</td>
                         {isOpen && (
                           <td className="whitespace-nowrap px-3 py-2 text-right">
                             <button type="button" onClick={() => startEdit(t)} aria-label="Editar" className="rounded p-1.5 text-muted hover:text-fg"><Pencil className="size-4" aria-hidden /></button>

@@ -1,9 +1,9 @@
 import "server-only";
-import { computeLedger, type Trade, type TradeKind } from "@/lib/diamonds";
+import { computeLedger, type Order, type OrderStatus, type Trade, type TradeKind } from "@/lib/diamonds";
 import { isSetupMissing } from "@/lib/guild/boostData";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const DIAMOND_SETUP_HINT = "O controle de diamantes ainda não está pronto no banco. Rode o arquivo supabase/migrations/0017_diamond_ledger.sql no SQL Editor do Supabase e tente de novo.";
+export const DIAMOND_SETUP_HINT = "O controle de diamantes ainda não está pronto no banco. Rode os arquivos supabase/migrations/0017_diamond_ledger.sql e 0019_diamond_orders.sql (nessa ordem) no SQL Editor do Supabase e tente de novo.";
 
 /** Erro "esperado": a mensagem já pode ir direto para a tela. */
 export class DiamondError extends Error {
@@ -14,15 +14,22 @@ export class DiamondError extends Error {
 
 type DbError = { code?: string; message?: string };
 const translate = (e: DbError): DiamondError => {
-  if (isSetupMissing(e) || /diamond_/i.test(e.message ?? "")) return new DiamondError(DIAMOND_SETUP_HINT, 500);
+  if (e.code === "DO001") return new DiamondError("Essa solicitação não está mais aberta.", 409);
+  if (e.code === "DO002") return new DiamondError("A quantidade é maior do que falta nessa solicitação.", 400);
+  if (e.code === "DO003") return new DiamondError("O preço informado é inválido.", 400);
+  if (isSetupMissing(e) || /diamond_|order_id/i.test(e.message ?? "")) return new DiamondError(DIAMOND_SETUP_HINT, 500);
   console.error("[diamonds]", e.code, e.message);
   return new DiamondError("Não foi possível concluir. Tente de novo.", 500);
 };
 
 export type Cycle = { id: number; startedAt: string; endedAt: string | null };
 
-type TradeRow = { id: number; cycle_id: number; kind: TradeKind; quantity: number; unit_price: number; traded_at: string; note: string | null };
-const toTrade = (r: TradeRow): Trade => ({ id: r.id, cycleId: r.cycle_id, kind: r.kind, quantity: r.quantity, unitPrice: Number(r.unit_price), tradedAt: r.traded_at, note: r.note });
+type TradeRow = { id: number; cycle_id: number; kind: TradeKind; quantity: number; unit_price: number; traded_at: string; note: string | null; order_id?: number | null };
+const toTrade = (r: TradeRow): Trade => ({ id: r.id, cycleId: r.cycle_id, kind: r.kind, quantity: r.quantity, unitPrice: Number(r.unit_price), tradedAt: r.traded_at, note: r.note, orderId: r.order_id ?? null });
+
+type OrderRow = { id: number; cycle_id: number; kind: "buy" | "sell"; quantity: number; filled: number; unit_price: number; initial_price: number; status: OrderStatus; note: string | null; created_at: string; closed_at: string | null };
+const ORDER_COLUMNS = "id, cycle_id, kind, quantity, filled, unit_price, initial_price, status, note, created_at, closed_at";
+const toOrder = (r: OrderRow): Order => ({ id: r.id, cycleId: r.cycle_id, kind: r.kind, quantity: r.quantity, filled: r.filled, unitPrice: Number(r.unit_price), initialPrice: Number(r.initial_price), status: r.status, note: r.note, createdAt: r.created_at, closedAt: r.closed_at });
 
 /** O ciclo aberto. Se ainda não existe nenhum (primeiro uso), cria. */
 export async function ensureOpenCycle(): Promise<Cycle> {
@@ -43,17 +50,19 @@ export async function ensureOpenCycle(): Promise<Cycle> {
 }
 
 /** Todos os ciclos (o mais novo primeiro) e todos os lançamentos. É pouco dado, então vai tudo de uma vez e a tela filtra. */
-export async function listAll(): Promise<{ cycles: Cycle[]; trades: Trade[] }> {
+export async function listAll(): Promise<{ cycles: Cycle[]; trades: Trade[]; orders: Order[] }> {
   await ensureOpenCycle();
   const db = createAdminClient();
-  const [cycles, trades] = await Promise.all([
+  const [cycles, trades, orders] = await Promise.all([
     db.from("diamond_cycles").select("id, started_at, ended_at").order("id", { ascending: false }),
-    db.from("diamond_trades").select("id, cycle_id, kind, quantity, unit_price, traded_at, note").order("traded_at", { ascending: true }).order("id", { ascending: true }).limit(20000),
+    db.from("diamond_trades").select("id, cycle_id, kind, quantity, unit_price, traded_at, note, order_id").order("traded_at", { ascending: true }).order("id", { ascending: true }).limit(20000),
+    db.from("diamond_orders").select(ORDER_COLUMNS).order("id", { ascending: false }).limit(5000),
   ]);
-  for (const res of [cycles, trades]) if (res.error) throw translate(res.error);
+  for (const res of [cycles, trades, orders]) if (res.error) throw translate(res.error);
   return {
     cycles: ((cycles.data ?? []) as { id: number; started_at: string; ended_at: string | null }[]).map((c) => ({ id: c.id, startedAt: c.started_at, endedAt: c.ended_at })),
     trades: ((trades.data ?? []) as TradeRow[]).map(toTrade),
+    orders: ((orders.data ?? []) as OrderRow[]).map(toOrder),
   };
 }
 
@@ -125,4 +134,59 @@ export async function deleteClosedCycle(id: number): Promise<void> {
   if (!row.ended_at) throw new DiamondError("O ciclo atual não pode ser apagado. Use “Reiniciar balanço”.", 409);
   const { error: delError } = await db.from("diamond_cycles").delete().eq("id", id);
   if (delError) throw translate(delError);
+}
+
+// ---------- solicitações (ordens) ----------
+
+export type OrderInput = { kind: "buy" | "sell"; quantity: number; unitPrice: number; note: string | null };
+
+/** Cria uma solicitação aberta no ciclo atual. Ela ainda não mexe no balanço: só vira lançamento quando for confirmada. */
+export async function addOrder(input: OrderInput): Promise<void> {
+  const cycle = await ensureOpenCycle();
+  const { error } = await createAdminClient().from("diamond_orders").insert({
+    cycle_id: cycle.id, kind: input.kind, quantity: input.quantity, unit_price: input.unitPrice, initial_price: input.unitPrice, note: input.note,
+  });
+  if (error) throw translate(error);
+}
+
+async function readOrder(id: number): Promise<Order> {
+  const { data, error } = await createAdminClient().from("diamond_orders").select(ORDER_COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw translate(error);
+  if (!data) throw new DiamondError("Essa solicitação não existe mais.", 404);
+  return toOrder(data as OrderRow);
+}
+
+/** Altera valor, quantidade total e observação de uma solicitação aberta. A quantidade não pode ficar abaixo do que já foi executado. */
+export async function updateOrder(id: number, input: Omit<OrderInput, "kind">): Promise<void> {
+  const order = await readOrder(id);
+  if (order.status !== "open") throw new DiamondError("Essa solicitação já foi encerrada e não pode mais ser alterada.", 409);
+  if (input.quantity < order.filled) throw new DiamondError(`A quantidade não pode ficar abaixo do que já foi executado (${order.filled} dd).`, 400);
+  const done = input.quantity === order.filled; // reduziu até o que já tinha sido executado: a solicitação está completa
+  const { error } = await createAdminClient().from("diamond_orders").update({
+    quantity: input.quantity, unit_price: input.unitPrice, note: input.note,
+    ...(done ? { status: "filled", closed_at: new Date().toISOString() } : {}),
+  }).eq("id", id);
+  if (error) throw translate(error);
+}
+
+/** Confirma (tudo ou parte de) uma solicitação: vira lançamento no balanço, com a quantidade e o preço realmente executados. */
+export async function fillOrder(id: number, quantity: number, unitPrice: number, at: string | null): Promise<void> {
+  const { error } = await createAdminClient().rpc("fill_diamond_order", { p_order_id: id, p_qty: quantity, p_price: unitPrice, p_at: at });
+  if (error) throw translate(error);
+}
+
+/** Cancela o que ainda falta. O que já foi executado continua no balanço. */
+export async function cancelOrder(id: number): Promise<void> {
+  const order = await readOrder(id);
+  if (order.status !== "open") throw new DiamondError("Essa solicitação já foi encerrada.", 409);
+  const { error } = await createAdminClient().from("diamond_orders").update({ status: "cancelled", closed_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw translate(error);
+}
+
+/** Apaga uma solicitação encerrada (concluída ou cancelada). Os lançamentos que ela gerou ficam no balanço. */
+export async function deleteOrder(id: number): Promise<void> {
+  const order = await readOrder(id);
+  if (order.status === "open") throw new DiamondError("Cancele a solicitação antes de apagar.", 409);
+  const { error } = await createAdminClient().from("diamond_orders").delete().eq("id", id);
+  if (error) throw translate(error);
 }

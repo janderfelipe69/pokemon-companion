@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth/session";
-import { DiamondError, addTrade, deleteClosedCycle, deleteTrade, listAll, resetCycle, updateTrade, type TradeInput } from "@/lib/diamondData";
+import { DiamondError, addOrder, addTrade, cancelOrder, deleteClosedCycle, deleteOrder, deleteTrade, fillOrder, listAll, resetCycle, updateOrder, updateTrade, type TradeInput } from "@/lib/diamondData";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +45,8 @@ export async function GET() {
 }
 
 /**
- * Ações do admin: `add`, `update` (id + campos), `delete` (id), `reset` (carry + confirm) e `delete-cycle` (id).
+ * Ações do admin: `add`, `update` (id + campos), `delete` (id), `reset` (carry + confirm) e `delete-cycle` (id);
+ * e as da solicitação: `order-add`, `order-update`, `order-fill`, `order-cancel` e `order-delete`.
  */
 export async function POST(request: Request) {
   try {
@@ -77,6 +78,40 @@ export async function POST(request: Request) {
       case "reset": {
         if (body.confirm !== RESET_WORD) return fail(`Para reiniciar, confirme digitando ${RESET_WORD}.`);
         await resetCycle(body.carry === true);
+        return json({ ok: true });
+      }
+      case "order-add": {
+        const order = parseTrade(body);
+        if (typeof order === "string") return fail(order);
+        await addOrder({ kind: order.kind, quantity: order.quantity, unitPrice: order.unitPrice, note: order.note });
+        return json({ ok: true });
+      }
+      case "order-update": {
+        const orderId = id(body.id);
+        const order = parseTrade(body);
+        if (!orderId) return fail("Solicitação inválida.");
+        if (typeof order === "string") return fail(order);
+        await updateOrder(orderId, { quantity: order.quantity, unitPrice: order.unitPrice, note: order.note });
+        return json({ ok: true });
+      }
+      case "order-fill": {
+        const orderId = id(body.id);
+        const fill = parseTrade({ ...body, kind: "buy" }); // o tipo da solicitação é o do banco; aqui só validamos quantidade, preço e data
+        if (!orderId) return fail("Solicitação inválida.");
+        if (typeof fill === "string") return fail(fill);
+        await fillOrder(orderId, fill.quantity, fill.unitPrice, fill.tradedAt);
+        return json({ ok: true });
+      }
+      case "order-cancel": {
+        const orderId = id(body.id);
+        if (!orderId) return fail("Solicitação inválida.");
+        await cancelOrder(orderId);
+        return json({ ok: true });
+      }
+      case "order-delete": {
+        const orderId = id(body.id);
+        if (!orderId) return fail("Solicitação inválida.");
+        await deleteOrder(orderId);
         return json({ ok: true });
       }
       case "delete-cycle": {
