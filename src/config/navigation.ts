@@ -10,6 +10,7 @@ import {
   Trophy,
   Gem,
   ListOrdered,
+  Star,
   Medal,
   ShieldCheck,
   type LucideIcon,
@@ -35,6 +36,7 @@ export const mainNav: NavItem[] = [
   { href: "/linked-tasks", label: "Linked Tasks", description: "Tarefas em ordem: mobs, Pokémon e tipo de hunt", icon: ListOrdered },
   { href: "/montador-times", label: "Montador de times", description: "Monte e compare seus times", icon: Swords },
   { href: "/teste-de-dano", label: "Teste de dano", description: "Divida a rotação e veja até que hazard vai", icon: Gauge },
+  { href: "/custo-de-star", label: "Custo de Star", description: "Calcule o custo para subir as stars do Pokémon", icon: Star },
   { href: "/guilda", label: "Guilda", description: "Boosts, trocas e times de clones (só para membros)", icon: Gem },
   { href: "/quadro-guilda", label: "Quadro da guilda", description: "Progresso semanal da guilda em imagem", icon: Trophy, adminOnly: true },
 ];

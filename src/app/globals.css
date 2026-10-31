@@ -15,11 +15,49 @@
 html { color-scheme: dark; }
 
 body {
-  background: var(--color-ink);
+  /* Dois brilhos bem suaves (dourado em cima, verde-água embaixo) por cima do fundo escuro. */
+  background:
+    radial-gradient(60rem 32rem at 88% -8%, rgba(242, 184, 75, 0.05), transparent 70%),
+    radial-gradient(50rem 28rem at 0% 108%, rgba(67, 208, 180, 0.045), transparent 70%),
+    var(--color-ink);
+  background-attachment: fixed;
   color: var(--color-fg);
   font-family: var(--font-sans);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(242, 184, 75, 0.3);
+  color: #fff;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2e3750 transparent;
+}
+
+/* ── Animações de Pokébola (todas desligam para quem pede menos movimento) ── */
+@keyframes pb-wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-16deg); }
+  40% { transform: rotate(13deg); }
+  60% { transform: rotate(-9deg); }
+  80% { transform: rotate(5deg); }
+}
+@keyframes pb-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pb-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.pb-wiggle:hover, .pb-wiggle:focus-visible { animation: pb-wiggle 0.65s ease-in-out; }
+.pb-spin { animation: pb-spin 1.1s linear infinite; }
+.pb-spin-slow { animation: pb-spin 90s linear infinite; }
+.pb-float { animation: pb-float 3.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pb-wiggle:hover, .pb-wiggle:focus-visible, .pb-spin, .pb-spin-slow, .pb-float { animation: none; }
 }
 
 :focus-visible {

@@ -5,12 +5,12 @@ import type { NavItem } from "@/config/navigation";
 const accents = {
   gold: {
     tile: "bg-gold/10 text-gold ring-gold/25",
-    border: "hover:border-gold/50",
+    border: "hover:border-gold/50 hover:shadow-[0_0_30px_-12px_rgba(242,184,75,0.55)]",
     arrow: "group-hover:text-gold",
   },
   teal: {
     tile: "bg-teal/10 text-teal ring-teal/25",
-    border: "hover:border-teal/50",
+    border: "hover:border-teal/50 hover:shadow-[0_0_30px_-12px_rgba(67,208,180,0.55)]",
     arrow: "group-hover:text-teal",
   },
 } as const;

@@ -1,6 +1,11 @@
 import { GUILD } from "@/config/guild";
 import { mainNav, type NavItem } from "@/config/navigation";
 import { HomeShortcut, type Accent } from "@/components/home/HomeShortcut";
+import { Pokeball } from "@/components/ui/Pokeball";
+import { TypeStrip } from "@/components/ui/TypeStrip";
+
+/** As balls da guilda (ícones em /public/guild/balls), mostradas como enfeite na página inicial. */
+const BALLS = ["premier", "ultra", "moon", "alliance", "yume", "sora", "magu", "fast", "heavy", "net", "dusk", "tale", "tinker", "janguru"];
 
 /** Como os atalhos são agrupados na página inicial (pelo endereço de cada página). */
 const groups: { title: string; hint: string; accent: Accent; hrefs: string[] }[] = [
@@ -14,7 +19,7 @@ const groups: { title: string; hint: string; accent: Accent; hrefs: string[] }[]
     title: "Ferramentas da guilda",
     hint: "Para planejar e acompanhar",
     accent: "teal",
-    hrefs: ["/guilda", "/montador-times", "/teste-de-dano", "/pokelog"],
+    hrefs: ["/guilda", "/montador-times", "/teste-de-dano", "/custo-de-star", "/pokelog"],
   },
 ];
 
@@ -40,6 +45,10 @@ export default function HomePage() {
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(42rem_18rem_at_92%_0%,rgba(242,184,75,0.13),transparent),radial-gradient(34rem_16rem_at_18%_110%,rgba(67,208,180,0.09),transparent)]"
         />
 
+        {/* Uma Pokébola gigante de contorno, girando devagar, no canto. */}
+        <Pokeball variant="line" className="pb-spin-slow pointer-events-none absolute -bottom-20 -right-16 size-72 text-gold/[0.06] sm:size-96" />
+        <TypeStrip className="absolute inset-x-0 bottom-0 h-1" />
+
         <div className="relative flex flex-col items-center gap-6 text-center sm:flex-row sm:gap-10 sm:text-left">
           <div className="relative shrink-0">
             <span aria-hidden className="absolute inset-0 rounded-full bg-gold/30 blur-2xl" />
@@ -60,6 +69,14 @@ export default function HomePage() {
             <p className="mt-4 max-w-xl text-muted">
               Tudo o que a guilda precisa para consultar, planejar e evoluir, num só lugar. Escolha por onde começar.
             </p>
+            <ul aria-hidden className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+              {BALLS.map((ball) => (
+                <li key={ball} className="pb-wiggle origin-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- ícone local pequeno e fixo */}
+                  <img src={`/guild/balls/${ball}.png`} alt="" width={36} height={36} loading="lazy" className="size-8 rounded-full shadow-md shadow-black/50 ring-1 ring-white/10 sm:size-9" />
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>

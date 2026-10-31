@@ -16,8 +16,8 @@ function NavLink({ item, onNavigate, soon }: { item: NavItem; onNavigate?: () =>
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-        active ? "bg-raised text-gold" : "text-muted hover:bg-raised hover:text-fg"
+      className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+        active ? "bg-raised text-gold before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-gold" : "text-muted hover:bg-raised hover:text-fg"
       }`}
     >
       <Icon className="size-5 shrink-0" aria-hidden />

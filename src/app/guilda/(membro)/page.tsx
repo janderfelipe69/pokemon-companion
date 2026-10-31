@@ -1,12 +1,14 @@
-import { Gem, Package, Target, Users, type LucideIcon } from "lucide-react";
+import { Flag, Gem, Package, Target, Users, type LucideIcon } from "lucide-react";
 import { HomeShortcut } from "@/components/home/HomeShortcut";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { bannerById } from "@/config/guildBanners";
 import type { NavItem } from "@/config/navigation";
+import { getGuildSettings } from "@/lib/guild/guildSettings";
 
 /** Para ganhar uma nova função na guilda, é só somar um item aqui e criar a página em app/guilda/(membro)/. */
 const item = (href: string, label: string, description: string, icon: LucideIcon): NavItem => ({ href, label, description, icon });
 
-const sections = [
+const baseSections = [
   {
     title: "Boosts",
     hint: "Stones do boss da guilda",
@@ -30,7 +32,21 @@ const sections = [
   },
 ];
 
-export default function GuildHubPage() {
+export default async function GuildHubPage() {
+  // O card do banner já diz qual está em uso. Se o banco não responder, o card fica só com o texto padrão.
+  let bannerText = "Qual banner a guilda usa e quais já estão liberados";
+  try {
+    const settings = await getGuildSettings();
+    const banner = bannerById(settings.banner);
+    if (banner) bannerText = `Em uso: ${banner.name} · guilda no nível ${settings.level}`;
+  } catch {
+    /* segue com o texto padrão */
+  }
+  const sections = [
+    ...baseSections,
+    { title: "Guilda", hint: "Informações da guilda", accent: "gold" as const, items: [item("/guilda/banner", "Banner da guilda", bannerText, Flag)] },
+  ];
+
   return (
     <div className="space-y-10">
       <PageHeader title="Guilda" description="Tudo o que é só dos membros: boosts, trocas de stones e times para as missões." />

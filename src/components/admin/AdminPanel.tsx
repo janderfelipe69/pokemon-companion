@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, Gem, Layers, Medal, Package, PiggyBank, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { BookOpen, Flag, Gem, Layers, Medal, Package, PiggyBank, Sparkles, Users, type LucideIcon } from "lucide-react";
 import { DiamondsManager } from "./DiamondsManager";
+import { GuildBannerManager } from "./GuildBannerManager";
 import { GuildMembersManager } from "./GuildMembersManager";
 import { ItemsManager } from "./ItemsManager";
 import { MedalsManager } from "./MedalsManager";
@@ -11,7 +12,7 @@ import { TalentsManager } from "./TalentsManager";
 import { TeamPoolManager } from "./TeamPoolManager";
 import { TierPricesManager } from "./TierPricesManager";
 
-type SectionKey = "pokemon" | "tiers" | "medalhas" | "itens" | "talentos" | "times" | "membros" | "diamantes";
+type SectionKey = "pokemon" | "tiers" | "medalhas" | "itens" | "talentos" | "times" | "membros" | "banner" | "diamantes";
 
 const SECTIONS: { key: SectionKey; label: string; description: string; icon: LucideIcon }[] = [
   { key: "pokemon", label: "Pokémon", description: "Cadastro e catálogo do site", icon: BookOpen },
@@ -21,6 +22,7 @@ const SECTIONS: { key: SectionKey; label: string; description: string; icon: Luc
   { key: "talentos", label: "Talentos", description: "Itens que cada talento pede", icon: Sparkles },
   { key: "times", label: "Time barato", description: "Pokémon úteis do Montador de times", icon: PiggyBank },
   { key: "membros", label: "Membros da guilda", description: "Quem escolhe boosts no botão Guilda", icon: Users },
+  { key: "banner", label: "Banner da guilda", description: "Qual banner a guilda usa e o nível dela", icon: Flag },
   { key: "diamantes", label: "Diamantes", description: "Compra e venda: gasto, lucro e saldo", icon: Gem },
 ];
 
@@ -98,6 +100,9 @@ export function AdminPanel() {
       </div>
       <div id="admin-panel-membros" role="tabpanel" aria-labelledby="admin-tab-membros" hidden={active !== "membros"}>
         <GuildMembersManager />
+      </div>
+      <div id="admin-panel-banner" role="tabpanel" aria-labelledby="admin-tab-banner" hidden={active !== "banner"}>
+        <GuildBannerManager />
       </div>
       <div id="admin-panel-diamantes" role="tabpanel" aria-labelledby="admin-tab-diamantes" hidden={active !== "diamantes"}>
         <DiamondsManager />
