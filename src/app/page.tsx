@@ -3,6 +3,10 @@ import { mainNav, type NavItem } from "@/config/navigation";
 import { HomeShortcut, type Accent } from "@/components/home/HomeShortcut";
 import { Pokeball } from "@/components/ui/Pokeball";
 import { TypeStrip } from "@/components/ui/TypeStrip";
+import { getGuildEmblem } from "@/lib/guild/guildEmblem";
+
+/** O banner da guilda vem do banco: a página se refaz sozinha de tempos em tempos, e na hora quando o admin troca o banner. */
+export const revalidate = 300;
 
 /** As balls da guilda (ícones em /public/guild/balls), mostradas como enfeite na página inicial. */
 const BALLS = ["premier", "ultra", "moon", "alliance", "yume", "sora", "magu", "fast", "heavy", "net", "dusk", "tale", "tinker", "janguru"];
@@ -23,7 +27,8 @@ const groups: { title: string; hint: string; accent: Accent; hrefs: string[] }[]
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const emblem = await getGuildEmblem();
   // Só páginas abertas a todos (as restritas ao admin aparecem no menu, para quem está logado).
   const available = mainNav.filter((item) => item.href !== "/" && !item.adminOnly);
   const byHref = new Map(available.map((item) => [item.href, item]));
@@ -52,14 +57,19 @@ export default function HomePage() {
         <div className="relative flex flex-col items-center gap-6 text-center sm:flex-row sm:gap-10 sm:text-left">
           <div className="relative shrink-0">
             <span aria-hidden className="absolute inset-0 rounded-full bg-gold/30 blur-2xl" />
-            {/* eslint-disable-next-line @next/next/no-img-element -- imagem local pequena e fixa */}
-            <img
-              src={GUILD.emblem}
-              alt={`Emblema da guilda ${GUILD.name}`}
-              width={144}
-              height={144}
-              className="relative size-28 rounded-full shadow-xl shadow-black/40 sm:size-36"
-            />
+            {emblem.banner ? (
+              // O banner da guilda é um rostinho com fundo transparente: ganha um anel dourado e um fundo escuro, como o emblema antigo.
+              <div className="relative grid size-28 place-items-center rounded-full border-[3px] border-gold/80 bg-gradient-to-b from-raised to-ink shadow-xl shadow-black/40 sm:size-36">
+                {/* eslint-disable-next-line @next/next/no-img-element -- imagem local pequena e fixa */}
+                <img src={emblem.src} alt={`Banner da guilda: ${emblem.banner.name}`} width={128} height={128} className="size-[88%] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]" />
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- imagem local pequena e fixa
+              <img src={emblem.src} alt={`Emblema da guilda ${GUILD.name}`} width={144} height={144} className="relative size-28 rounded-full shadow-xl shadow-black/40 sm:size-36" />
+            )}
+            {emblem.banner && emblem.level !== null && (
+              <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-gold/60 bg-ink px-3 py-0.5 text-xs font-semibold text-gold">Nível {emblem.level}</span>
+            )}
           </div>
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold">Seja bem-vindo à</p>

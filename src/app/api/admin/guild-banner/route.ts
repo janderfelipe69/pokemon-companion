@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { parseBannerSettings } from "@/config/guildBanners";
 import { isAdminAuthenticated } from "@/lib/auth/session";
@@ -27,6 +28,7 @@ export async function PUT(request: Request) {
     const parsed = parseBannerSettings(await request.json().catch(() => null));
     if (typeof parsed === "string") return fail(parsed);
     await saveGuildSettings(parsed);
+    revalidatePath("/"); // a página inicial mostra o banner: refaz agora, sem esperar o tempo de cache
     return json({ ok: true, ...parsed });
   } catch (e) {
     return failAny(e);
