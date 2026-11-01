@@ -234,3 +234,24 @@ export function toLocalInput(iso: string | Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/**
+ * Como uma compra/venda é descontada das solicitações abertas do mesmo tipo (a mesma ordem que o banco usa):
+ * primeiro a de mesmo valor, depois a mais antiga, passando para a seguinte se a quantidade for maior.
+ * Devolve quanto vai para cada solicitação e quanto sobra sem solicitação.
+ */
+export function allocateToOrders(open: Order[], kind: "buy" | "sell", quantity: number, unitPrice: number): { parts: { order: Order; take: number }[]; rest: number } {
+  const candidates = open
+    .filter((o) => o.status === "open" && o.kind === kind && orderLeft(o) > 0)
+    .sort((a, b) => Number(b.unitPrice === unitPrice) - Number(a.unitPrice === unitPrice) || Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id - b.id);
+  let left = quantity;
+  const parts: { order: Order; take: number }[] = [];
+  for (const order of candidates) {
+    if (left <= 0) break;
+    const take = Math.min(left, orderLeft(order));
+    parts.push({ order, take });
+    left -= take;
+  }
+  return { parts, rest: left };
+}
+

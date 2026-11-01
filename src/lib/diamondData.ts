@@ -3,7 +3,7 @@ import { computeLedger, type Order, type OrderStatus, type Trade, type TradeKind
 import { isSetupMissing } from "@/lib/guild/boostData";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const DIAMOND_SETUP_HINT = "O controle de diamantes ainda não está pronto no banco. Rode os arquivos supabase/migrations/0017_diamond_ledger.sql e 0019_diamond_orders.sql (nessa ordem) no SQL Editor do Supabase e tente de novo.";
+export const DIAMOND_SETUP_HINT = "O controle de diamantes ainda não está pronto no banco. Rode os arquivos supabase/migrations/0017_diamond_ledger.sql, 0019_diamond_orders.sql e 0020_diamond_orders_apply.sql (nessa ordem) no SQL Editor do Supabase e tente de novo.";
 
 /** Erro "esperado": a mensagem já pode ir direto para a tela. */
 export class DiamondError extends Error {
@@ -17,7 +17,12 @@ const translate = (e: DbError): DiamondError => {
   if (e.code === "DO001") return new DiamondError("Essa solicitação não está mais aberta.", 409);
   if (e.code === "DO002") return new DiamondError("A quantidade é maior do que falta nessa solicitação.", 400);
   if (e.code === "DO003") return new DiamondError("O preço informado é inválido.", 400);
-  if (isSetupMissing(e) || /diamond_|order_id/i.test(e.message ?? "")) return new DiamondError(DIAMOND_SETUP_HINT, 500);
+  if (e.code === "DO004") return new DiamondError("Escolha se é compra ou venda.", 400);
+  if (e.code === "DO005") return new DiamondError("Não há balanço aberto. Recarregue a página.", 409);
+  if (e.code === "DO006") return new DiamondError("Essa quantidade passa do que a solicitação de origem tem. Ajuste a solicitação primeiro.", 400);
+  if (e.code === "DO007") return new DiamondError("Esse lançamento veio de uma solicitação, então não dá para trocar entre compra e venda.", 400);
+  if (e.code === "DO008") return new DiamondError("Esse lançamento não existe mais.", 404);
+  if (isSetupMissing(e) || /diamond_|order_id|add_diamond_trade|update_diamond_trade|delete_diamond_trade/i.test(e.message ?? "")) return new DiamondError(DIAMOND_SETUP_HINT, 500);
   console.error("[diamonds]", e.code, e.message);
   return new DiamondError("Não foi possível concluir. Tente de novo.", 500);
 };
@@ -68,12 +73,17 @@ export async function listAll(): Promise<{ cycles: Cycle[]; trades: Trade[]; ord
 
 export type TradeInput = { kind: "buy" | "sell"; quantity: number; unitPrice: number; tradedAt: string | null; note: string | null };
 
-export async function addTrade(input: TradeInput): Promise<void> {
-  const cycle = await ensureOpenCycle();
-  const { error } = await createAdminClient().from("diamond_trades").insert({
-    cycle_id: cycle.id, kind: input.kind, quantity: input.quantity, unit_price: input.unitPrice, traded_at: input.tradedAt ?? new Date().toISOString(), note: input.note,
+/**
+ * Registra uma compra ou venda. Com `apply` (o padrão da tela), o que foi negociado é descontado das solicitações abertas
+ * do mesmo tipo. Devolve quantos dd foram descontados de solicitações.
+ */
+export async function addTrade(input: TradeInput, apply: boolean): Promise<number> {
+  await ensureOpenCycle();
+  const { data, error } = await createAdminClient().rpc("add_diamond_trade", {
+    p_kind: input.kind, p_qty: input.quantity, p_price: input.unitPrice, p_at: input.tradedAt, p_note: input.note, p_apply: apply,
   });
   if (error) throw translate(error);
+  return Number(data ?? 0);
 }
 
 /** Só dá para mexer em lançamento do ciclo aberto: os ciclos fechados são histórico. */
@@ -90,17 +100,16 @@ async function openTrade(id: number): Promise<{ id: number; kind: TradeKind }> {
 }
 
 export async function updateTrade(id: number, input: TradeInput): Promise<void> {
-  const current = await openTrade(id);
-  // O estoque que veio do ciclo anterior continua sendo estoque: dá para ajustar quantidade e preço, mas não virar compra ou venda.
-  const { error } = await createAdminClient().from("diamond_trades").update({
-    ...(current.kind === "carry" ? {} : { kind: input.kind }), quantity: input.quantity, unit_price: input.unitPrice, traded_at: input.tradedAt ?? new Date().toISOString(), note: input.note,
-  }).eq("id", id);
+  await openTrade(id); // só lançamento do ciclo aberto; o banco mantém a solicitação de origem (se houver) em dia
+  const { error } = await createAdminClient().rpc("update_diamond_trade", {
+    p_id: id, p_kind: input.kind, p_qty: input.quantity, p_price: input.unitPrice, p_at: input.tradedAt, p_note: input.note,
+  });
   if (error) throw translate(error);
 }
 
 export async function deleteTrade(id: number): Promise<void> {
   await openTrade(id);
-  const { error } = await createAdminClient().from("diamond_trades").delete().eq("id", id);
+  const { error } = await createAdminClient().rpc("delete_diamond_trade", { p_id: id });
   if (error) throw translate(error);
 }
 

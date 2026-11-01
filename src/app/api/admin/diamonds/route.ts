@@ -58,8 +58,9 @@ export async function POST(request: Request) {
       case "add": {
         const trade = parseTrade(body);
         if (typeof trade === "string") return fail(trade);
-        await addTrade(trade);
-        return json({ ok: true });
+        // Por padrão, o que foi negociado é descontado das solicitações abertas do mesmo tipo (a tela deixa desmarcar).
+        const applied = await addTrade(trade, body.applyToOrders !== false);
+        return json({ ok: true, applied });
       }
       case "update": {
         const tradeId = id(body.id);

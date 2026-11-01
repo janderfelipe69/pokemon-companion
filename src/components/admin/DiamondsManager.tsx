@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
 import { DiamondOrders } from "./DiamondOrders";
 import {
-  computeLedger, filterTrades, fmt, fmtShort, fmtSigned, parseAmount, periodRange, summarize, toLocalInput,
+  allocateToOrders, computeLedger, filterTrades, fmt, fmtShort, fmtSigned, orderLeft, parseAmount, periodRange, summarize, toLocalInput,
   type KindFilter, type Order, type Period, type Trade, type TradeCalc, type TradeKind,
 } from "@/lib/diamonds";
 
@@ -34,6 +34,10 @@ const KINDS: { id: KindFilter; label: string }[] = [
 async function readJson(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
+
+const SESSION_EXPIRED = "Sua sessão de administrador expirou. Recarregue a página e entre de novo com a senha do admin.";
+/** O texto de erro de uma resposta da API; o 401 vira um aviso claro de sessão expirada. */
+const errorText = (response: Response, body: Record<string, unknown>, fallback: string) => (response.status === 401 ? SESSION_EXPIRED : String(body.error || fallback));
 
 const when = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 const day = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
@@ -72,6 +76,7 @@ export function DiamondsManager() {
   const [price, setPrice] = useState("");
   const [at, setAt] = useState("");
   const [note, setNote] = useState("");
+  const [applyToOrders, setApplyToOrders] = useState(true);
 
   const [resetOpen, setResetOpen] = useState(false);
   const [resetWord, setResetWord] = useState("");
@@ -81,7 +86,7 @@ export function DiamondsManager() {
     try {
       const response = await fetch("/api/admin/diamonds", { cache: "no-store" });
       const body = await readJson(response);
-      if (!response.ok) throw new Error(String(body.error || "Não foi possível carregar o controle de diamantes."));
+      if (!response.ok) throw new Error(errorText(response, body, "Não foi possível carregar o controle de diamantes."));
       const next = { cycles: body.cycles as Cycle[], trades: body.trades as Trade[], orders: (body.orders as Order[]) ?? [] };
       setData(next);
       setLoadError("");
@@ -114,7 +119,14 @@ export function DiamondsManager() {
   const stockNow = useMemo(() => summarize([], computeLedger((data?.trades ?? []).filter((t) => t.cycleId === cycleId && t.id !== editingId))), [data, cycleId, editingId]);
   const estimate = kind === "sell" && quantity && unit !== null && stockNow.stock > 0 ? Math.min(quantity, stockNow.stock) * (unit - stockNow.avgCost) + Math.max(0, quantity - stockNow.stock) * unit : null;
 
+  // Solicitações abertas do mesmo tipo: o que for registrado é descontado delas (a pessoa pode desmarcar).
+  const openOrders = (data?.orders ?? []).filter((o) => o.status === "open");
+  const matching = editingId === null ? openOrders.filter((o) => o.kind === kind && orderLeft(o) > 0) : [];
+  const allocation = matching.length > 0 && quantity && unit !== null ? allocateToOrders(openOrders, kind, quantity, unit) : null;
+  const editingTrade = editingId !== null ? ledger.find((t) => t.id === editingId) : null;
+
   function resetForm() {
+    setApplyToOrders(true);
     setEditingId(null);
     setQty("");
     setPrice("");
@@ -139,7 +151,7 @@ export function DiamondsManager() {
     try {
       const response = await fetch("/api/admin/diamonds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const result = await readJson(response);
-      if (!response.ok) return String(result.error || "Não foi possível concluir.");
+      if (!response.ok) return errorText(response, result, "Não foi possível concluir.");
       await load();
       return null;
     } catch (e) {
@@ -160,15 +172,19 @@ export function DiamondsManager() {
     if (!quantity) return setNotice({ kind: "error", text: "Digite a quantidade de diamantes (número inteiro, ex.: 50)." });
     if (unit === null) return setNotice({ kind: "error", text: "Digite o preço de cada diamante, como 380000, 380.000 ou 380k." });
     const body = { kind, quantity, unitPrice: unit, tradedAt: at ? new Date(at).toISOString() : null, note };
-    const ok = await post(editingId ? { action: "update", id: editingId, ...body } : { action: "add", ...body });
+    // O desconto na solicitação é feito pelo banco; aqui só calculamos o mesmo para dizer o que aconteceu.
+    const discounted = !editingId && applyToOrders && allocation ? quantity - allocation.rest : 0;
+    const ok = await post(editingId ? { action: "update", id: editingId, ...body } : { action: "add", ...body, applyToOrders });
     if (ok) {
-      setNotice({ kind: "ok", text: editingId ? "Lançamento atualizado." : `${kind === "buy" ? "Compra" : "Venda"} registrada: ${fmt(quantity)} dd a ${fmt(unit)}.` });
+      const word = kind === "buy" ? "Compra" : "Venda";
+      const tail = discounted > 0 ? ` ${fmt(discounted)} dd descontados da solicitação${allocation && allocation.parts.length > 1 ? " (passou para a seguinte)" : ""}.` : "";
+      setNotice({ kind: "ok", text: editingId ? "Lançamento atualizado." : `${word} registrada: ${fmt(quantity)} dd a ${fmt(unit)}.${tail}` });
       resetForm();
     }
   }
 
   async function remove(t: TradeCalc) {
-    if (!window.confirm(`Apagar ${KIND_LABEL[t.kind].toLowerCase()} de ${fmt(t.quantity)} dd a ${fmt(t.unitPrice)}?`)) return;
+    if (!window.confirm(`Apagar ${KIND_LABEL[t.kind].toLowerCase()} de ${fmt(t.quantity)} dd a ${fmt(t.unitPrice)}?${t.orderId ? " Esse lançamento veio de uma solicitação: a quantidade volta para ela." : ""}`)) return;
     if (await post({ action: "delete", id: t.id })) {
       if (editingId === t.id) resetForm();
       setNotice({ kind: "ok", text: "Lançamento apagado." });
@@ -310,6 +326,28 @@ export function DiamondsManager() {
                   )}
                 </p>
               )}
+              {matching.length > 0 && (
+                <label className="flex items-start gap-2 rounded-lg border border-line bg-raised p-3 text-sm">
+                  <input type="checkbox" checked={applyToOrders} onChange={(e) => setApplyToOrders(e.target.checked)} className="mt-1" />
+                  <span>
+                    <b className="font-medium">Descontar da solicitação aberta</b>
+                    <span className="block text-xs text-muted">
+                      {matching.length === 1
+                        ? `Solicitação de ${kind === "buy" ? "compra" : "venda"}: faltam ${fmt(orderLeft(matching[0]))} dd a ${fmt(matching[0].unitPrice)}.`
+                        : `${matching.length} solicitações de ${kind === "buy" ? "compra" : "venda"} abertas: o desconto vai primeiro para a de mesmo valor e depois para a mais antiga.`}
+                    </span>
+                    {applyToOrders && allocation && (
+                      <span className="mt-1 block text-xs text-teal">
+                        {allocation.parts.length === 0
+                          ? "Nenhuma solicitação será alterada."
+                          : allocation.parts.map(({ order, take }) => `${fmt(take)} dd saem da solicitação de ${fmt(order.unitPrice)} (ficam ${fmt(orderLeft(order) - take)})`).join(" · ")}
+                        {allocation.rest > 0 && ` · ${fmt(allocation.rest)} dd ficam sem solicitação`}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              )}
+              {editingTrade?.orderId && <p className="text-xs text-muted">Esse lançamento veio de uma solicitação: se você mudar a quantidade, a solicitação é ajustada junto.</p>}
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => void submit()} disabled={busy} className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40">
                   {busy ? "Salvando..." : editingId ? "Salvar alterações" : kind === "buy" ? "Registrar compra" : "Registrar venda"}
