@@ -28,7 +28,7 @@ export async function PUT(request: Request) {
     const parsed = parseBannerSettings(await request.json().catch(() => null));
     if (typeof parsed === "string") return fail(parsed);
     await saveGuildSettings(parsed);
-    revalidatePath("/"); // a página inicial mostra o banner: refaz agora, sem esperar o tempo de cache
+    revalidatePath("/", "layout"); // o banner aparece no menu de todas as páginas: refaz agora, sem esperar o tempo de cache
     return json({ ok: true, ...parsed });
   } catch (e) {
     return failAny(e);

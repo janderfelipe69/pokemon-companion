@@ -1,5 +1,5 @@
 import { GUILD } from "@/config/guild";
-import { mainNav, type NavItem } from "@/config/navigation";
+import { NAV_GROUPS, visibleNav, type NavGroup } from "@/config/navigation";
 import { HomeShortcut, type Accent } from "@/components/home/HomeShortcut";
 import { Pokeball } from "@/components/ui/Pokeball";
 import { TypeStrip } from "@/components/ui/TypeStrip";
@@ -11,35 +11,17 @@ export const revalidate = 300;
 /** As balls da guilda (ícones em /public/guild/balls), mostradas como enfeite na página inicial. */
 const BALLS = ["premier", "ultra", "moon", "alliance", "yume", "sora", "magu", "fast", "heavy", "net", "dusk", "tale", "tinker", "janguru"];
 
-/** Como os atalhos são agrupados na página inicial (pelo endereço de cada página). */
-const groups: { title: string; hint: string; accent: Accent; hrefs: string[] }[] = [
-  {
-    title: "Consultar",
-    hint: "Informações do jogo sempre à mão",
-    accent: "gold",
-    hrefs: ["/pokedex", "/medalhas", "/tiers", "/drops", "/rotas-farm", "/linked-tasks"],
-  },
-  {
-    title: "Ferramentas da guilda",
-    hint: "Para planejar e acompanhar",
-    accent: "teal",
-    hrefs: ["/guilda", "/montador-times", "/teste-de-dano", "/custo-de-star", "/pokelog"],
-  },
-];
+/** Cor de destaque de cada seção da página inicial. */
+const ACCENT: Record<NavGroup, Accent> = { guilda: "gold", consultar: "teal", ferramentas: "gold" };
 
 export default async function HomePage() {
   const emblem = await getGuildEmblem();
-  // Só páginas abertas a todos (as restritas ao admin aparecem no menu, para quem está logado).
-  const available = mainNav.filter((item) => item.href !== "/" && !item.adminOnly);
-  const byHref = new Map(available.map((item) => [item.href, item]));
-  const placed = new Set(groups.flatMap((g) => g.hrefs));
-  // Páginas novas que ainda não entraram em nenhum grupo não ficam de fora.
-  const others = available.filter((item) => !placed.has(item.href));
-
-  const sections = [
-    ...groups.map((g) => ({ ...g, items: g.hrefs.map((h) => byHref.get(h)).filter((i): i is NavItem => !!i) })),
-    ...(others.length > 0 ? [{ title: "Outros", hint: "", accent: "gold" as Accent, hrefs: [], items: others }] : []),
-  ].filter((s) => s.items.length > 0);
+  // As seções e os atalhos vêm do menu (config/navigation.ts): o que está em construção (hidden) e o que é só do admin ficam de fora.
+  const sections = NAV_GROUPS.map((group) => ({
+    ...group,
+    accent: ACCENT[group.key],
+    items: visibleNav.filter((item) => item.group === group.key && !item.adminOnly),
+  })).filter((section) => section.items.length > 0);
 
   return (
     <div className="space-y-12">
@@ -92,12 +74,12 @@ export default async function HomePage() {
       </section>
 
       {sections.map((section, i) => (
-        <section key={section.title} aria-labelledby={`grupo-${i}`}>
+        <section key={section.label} aria-labelledby={`grupo-${i}`}>
           <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 id={`grupo-${i}`} className="text-xl font-semibold tracking-tight">
-              {section.title}
+              {section.label}
             </h2>
-            {section.hint && <p className="text-sm text-muted">{section.hint}</p>}
+            <p className="text-sm text-muted">{section.hint}</p>
           </div>
           <div className={`grid gap-3 sm:gap-4 sm:grid-cols-2 ${section.items.length >= 4 ? "xl:grid-cols-4" : "lg:grid-cols-3"}`}>
             {section.items.map((item) => (

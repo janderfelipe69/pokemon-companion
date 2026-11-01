@@ -15,7 +15,7 @@ export const revalidate = 60;
 
 export default async function PokedexPage() {
   // Mesma fonte de Tiers e Valores: tier, preços e tipos ofensivos não são duplicados.
-  const { pokemon, source } = await getCatalog();
+  const { pokemon } = await getCatalog();
   const entries = buildPokedexEntries(pokemon);
   const drops = buildDropsClientData(entries, await getDropsRaw(), { allItems: false });
 
@@ -24,7 +24,6 @@ export default async function PokedexPage() {
       <PageHeader
         title="Pokédex"
         description="Consulte cada Pokémon com a tipagem original e a tipagem ofensiva das skills."
-        badge={<Badge tone="teal">{source === "supabase" ? "Banco de dados" : "Lista importada"}</Badge>}
       />
       <Card className="mb-6 flex items-start gap-4 border-teal/40 bg-teal/5">
         <Info className="mt-0.5 size-5 shrink-0 text-teal" aria-hidden />

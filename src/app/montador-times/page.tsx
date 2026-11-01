@@ -14,7 +14,7 @@ export const revalidate = 60;
 
 export default async function Page() {
   // Mesma fonte da Pokédex: o montador só usa Pokémon cadastrados lá.
-  const [{ pokemon: catalog, source }, pools] = await Promise.all([getCatalog(), getTeamPools()]);
+  const [{ pokemon: catalog }, pools] = await Promise.all([getCatalog(), getTeamPools()]);
   // O cadastro guarda "Absol" com a variante Mega: o nome mostrado precisa dizer "Mega Absol".
   const pokemon = catalog.map((p) => (isMega(p) ? { ...p, sourceName: megaName(p) } : p));
   const tiersInUse = new Set<string>([
@@ -32,7 +32,6 @@ export default async function Page() {
       <PageHeader
         title="Montador de times"
         description="Escolha o Pokémon que quer caçar e receba times de 6 que batem a efetividade, ou escolha um tipo e veja o que ele consegue farmar."
-        badge={<Badge tone="teal">{source === "supabase" ? "Banco de dados" : "Lista importada"}</Badge>}
       />
       <TeamTools entries={entries} pools={pools} sealed={sealed} />
     </>

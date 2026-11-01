@@ -1,16 +1,22 @@
-export function Logo() {
+import { GUILD } from "@/config/guild";
+import type { GuildEmblem } from "@/lib/guild/guildEmblem";
+
+/** A marca do site: o emblema (ou o banner em uso) da guilda e o nome dela. "Pokémon Companion" fica como o nome do site, pequeno. */
+export function Logo({ emblem }: { emblem: GuildEmblem }) {
   return (
     <div className="flex items-center gap-3">
-      <svg viewBox="0 0 32 32" className="size-9 shrink-0" aria-hidden>
-        <circle cx="16" cy="16" r="14" fill="#1b2133" stroke="#262d42" strokeWidth="2" />
-        <path d="M2 16a14 14 0 0 1 28 0H2Z" fill="#f2b84b" />
-        <path d="M2 16h28" stroke="#0d1019" strokeWidth="2.5" />
-        <circle cx="16" cy="16" r="5" fill="#0d1019" />
-        <circle cx="16" cy="16" r="2.5" fill="#43d0b4" />
-      </svg>
-      <div className="leading-tight">
-        <p className="font-semibold tracking-tight">Pokémon Companion</p>
-        <p className="text-xs text-muted">Guia de consulta</p>
+      {emblem.banner ? (
+        <span className="relative grid size-11 shrink-0 place-items-center rounded-full border-2 border-gold/80 bg-gradient-to-b from-raised to-ink shadow-lg shadow-black/40">
+          {/* eslint-disable-next-line @next/next/no-img-element -- imagem local pequena e fixa */}
+          <img src={emblem.src} alt="" width={44} height={44} className="size-[86%] object-contain" />
+        </span>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- imagem local pequena e fixa
+        <img src={emblem.src} alt="" width={44} height={44} className="size-11 shrink-0 rounded-full shadow-lg shadow-black/40" />
+      )}
+      <div className="min-w-0 leading-tight">
+        <p className="whitespace-nowrap bg-gradient-to-r from-gold to-amber-100 bg-clip-text text-[15px] font-bold tracking-tight text-transparent">{GUILD.name}</p>
+        <p className="whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.12em] text-muted">Pokémon Companion</p>
       </div>
     </div>
   );
