@@ -300,3 +300,13 @@ Modificados: `src/types/pokemon.ts`, `src/lib/supabase/catalog.ts`, `src/lib/pok
 - **Discord (opcional):** com `DISCORD_WEBHOOK_URL` configurada, o site posta o plano completo numa mensagem (embed) na primeira publicação da rodada e **edita a mesma** nas seguintes (plano grande vira mais de uma mensagem). Botão **Atualizar no Discord** (no máximo a cada 15s). Menções são bloqueadas e nicks são escapados. Falha no Discord nunca atrapalha a publicação. Código: `src/lib/guild/discord.ts`.
 - Banco: `0011_guild_boost_drops.sql` e `0012_guild_discord_rounds.sql`. API: `/api/guild/drops` (GET público; PUT/DELETE de quem está logado) e `/api/guild/discord` (POST de quem está logado).
 - No canal do Discord, para só cargos escreverem: negar "Enviar mensagens" ao @everyone e liberar no cargo desejado. Webhook posta mesmo assim.
+
+---
+
+## Boosts da guilda: plano de trocas ao vivo (trocas fixas + "Já troquei")
+- **Trocas fixas:** quando alguém publica, o site aponta cada stone **inteira** para uma única pessoa que a quer (a que está com menos poder; as mais fortes primeiro) e grava no banco (`guild_boost_transfers`, migração `0022_guild_boost_transfers.sql`). Depois de apontada, **nada é recalculado nem dividido**: quem publica depois só recebe o que sobrou ou o que ainda não tinha dono. Lógica pura em `reconcileTransfers` / `buildPlan` (`src/lib/guild/boostTrades.ts`); persistência em `reconcileRound` (`boostData.ts`), chamada ao publicar, retirar e ao mudar o que se quer.
+- **Quando uma troca sai:** só se deixou de fazer sentido (o dono retirou o drop, o destino não quer mais, ou a quantidade publicada diminuiu) e **nunca** se já foi marcada como feita. Nesse caso a stone vai inteira para outra pessoa que a queira.
+- **"Já troquei":** em cada linha do plano, quem entrega ou quem recebe marca/desmarca (`PATCH /api/guild/transfers`). Todos veem "✓ trocado", o contador de trocadas e, no Discord, ✅.
+- **Tempo real:** a tela escuta `guild_boost_drops`, `guild_boost_wants` e `guild_boost_transfers` (migração `0021_guild_realtime.sql` + a 0022). Sem tempo real, polling de 8 s. Selo "Ao vivo", feed de atividade, aviso "Seu plano mudou" (agora = coisas novas para você), destaque das linhas que envolvem você, "Ainda não publicaram" e, nas sobras, quem ainda pode pegar.
+- **Discord:** usa as trocas guardadas (✅ nas feitas), bloco "⏳ Ainda não publicaram", atualiza ao publicar, mudar o que quer ou marcar troca, e se refaz se duas edições se cruzarem.
+- **Ordem das migrações:** 0011 → 0021 → 0022.

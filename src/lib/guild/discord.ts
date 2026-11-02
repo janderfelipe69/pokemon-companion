@@ -1,11 +1,11 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { listDrops, listMembers, listWants } from "./boostData";
+import { listDrops, listMembers, listTransfers, listWants } from "./boostData";
 import { roundEnd } from "./boostRound";
 import { BOOST_TYPES, STONE_TIERS, TIER_KEYS, type StoneTierKey } from "@/config/guildBoost";
 import { typeInfo } from "@/config/pokemonTypes";
 import type { PokemonType } from "@/types/pokemon";
-import { planTrades, type LeftoverStone, type PersonPlan, type TradePlan, type Transfer } from "./boostTrades";
+import { buildPlan, planSignature, type LeftoverStone, type PersonPlan, type TradePlan, type Transfer } from "./boostTrades";
 
 export const WEBHOOK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 const BOT_NAME = "Boosts da Guilda";
@@ -33,6 +33,8 @@ const GOLD = 0xf2b84b;
 const GRAY = 0x4f545c;
 const CHUNK_LIMIT = 3500; // cada mensagem pode ter até 6000 caracteres somando os quadros; sobra espaço para o "Sobrou"
 const LEFTOVER_LIMIT = 1700;
+const WAITING_LIMIT = 500;
+const BLUE = 0x5865f2;
 
 /** Nick vira texto simples: sem negrito/itálico acidental. (Menções já são bloqueadas por `allowed_mentions`.) */
 export const esc = (text: string) => text.replace(/([\\*_~`|>])/g, "\\$1");
@@ -45,7 +47,7 @@ const TYPE_EMOJI: Record<PokemonType, string> = {
 const tierName = (tier: StoneTierKey) => STONE_TIERS.find((t) => t.key === tier)?.label ?? tier;
 /** Advanced e Potent saem em negrito: são as que a galera mais procura. */
 const tierText = (tier: StoneTierKey) => (tier === "advanced" || tier === "potent" ? `**${tierName(tier)}**` : tierName(tier));
-const stoneText = (s: { type: PokemonType; tier: StoneTierKey; qty: number }) => `${TYPE_EMOJI[s.type]} ${s.qty}x ${tierText(s.tier)} ${typeInfo[s.type].label}`;
+const stoneText = (s: { type: PokemonType; tier: StoneTierKey; qty: number; done?: boolean }) => `${s.done ? "✅" : TYPE_EMOJI[s.type]} ${s.qty}x ${tierText(s.tier)} ${typeInfo[s.type].label}`;
 
 /** "📥 de **Cryt**: ⛰️ 2x Advanced Ground · 🔥 …" — uma linha por pessoa do outro lado da troca, as stones mais fortes primeiro. */
 function transferLines(list: readonly Transfer[], side: "from" | "to"): string[] {
@@ -85,6 +87,20 @@ function leftoverDescription(leftover: readonly LeftoverStone[]): string {
   return kept.join("\n");
 }
 
+/** Só os nomes de quem quer stones e ainda não publicou, cortando com "… e mais N" se passar do limite. */
+function waitingDescription(names: readonly string[]): string {
+  const kept: string[] = [];
+  let size = 0;
+  for (const name of names) {
+    const part = esc(name);
+    if (size + part.length + 2 > WAITING_LIMIT) break;
+    kept.push(part);
+    size += part.length + 2;
+  }
+  const rest = names.length - kept.length;
+  return `${kept.join(", ")}${rest > 0 ? ` … e mais ${rest}` : ""}\n*Quando publicarem, o plano se refaz.*`;
+}
+
 /** O plano em partes de no máximo ~3500 caracteres, sempre quebrando entre pessoas (ou entre linhas, se uma pessoa sozinha passar do limite). */
 export function planChunks(plan: TradePlan): string[] {
   const traders = plan.people.filter((p) => p.gives.length > 0 || p.gets.length > 0);
@@ -93,7 +109,8 @@ export function planChunks(plan: TradePlan): string[] {
   const blocks: string[][] = [];
   if (plan.people.length === 0) blocks.push(["Ninguém publicou drops nesta rodada."]);
   else {
-    blocks.push([`**${plan.people.length}** ${plan.people.length === 1 ? "pessoa publicou" : "pessoas publicaram"} · **${moved}** ${moved === 1 ? "stone" : "stones"} a repassar`]);
+    const done = plan.transfers.filter((t) => t.done).reduce((n, t) => n + t.qty, 0);
+    blocks.push([`**${plan.people.length}** ${plan.people.length === 1 ? "pessoa publicou" : "pessoas publicaram"} · **${moved}** ${moved === 1 ? "stone" : "stones"} a repassar${done > 0 ? ` · ✅ **${done}** já ${done === 1 ? "trocada" : "trocadas"}` : ""}`]);
     if (traders.length === 0) blocks.push(["Nenhuma troca por enquanto."]);
   }
   blocks.push(...traders.map(personBlock));
@@ -129,7 +146,7 @@ export function planChunks(plan: TradePlan): string[] {
 }
 
 /** Cada item é uma mensagem do Discord (lista de quadros). O quadro cinza do "Sobrou" vai junto da última. */
-export function buildMessages(plan: TradePlan, updatedAt: Date): object[][] {
+export function buildMessages(plan: TradePlan, updatedAt: Date, waiting: readonly string[] = []): object[][] {
   const chunks = planChunks(plan);
   const link = siteUrl();
   const timestamp = updatedAt.toISOString(); // o Discord mostra no horário de quem está vendo
@@ -142,7 +159,9 @@ export function buildMessages(plan: TradePlan, updatedAt: Date): object[][] {
       timestamp,
     },
   ]);
-  if (plan.leftover.length > 0) messages[messages.length - 1].push({ title: "Sobrou — ninguém que publicou quer", description: leftoverDescription(plan.leftover), color: GRAY });
+  const last = messages[messages.length - 1];
+  if (plan.leftover.length > 0) last.push({ title: "Sobrou — ninguém que publicou quer", description: leftoverDescription(plan.leftover), color: GRAY });
+  if (waiting.length > 0 && plan.people.length > 0) last.push({ title: `⏳ Ainda não publicaram (${waiting.length})`, description: waitingDescription(waiting), color: BLUE });
   return messages;
 }
 
@@ -189,13 +208,19 @@ async function readRound(key: string): Promise<RoundRow | null> {
   return (data as RoundRow | null) ?? null;
 }
 
-async function currentPlan(): Promise<{ plan: TradePlan; participants: number }> {
-  const [members, wants, drops] = await Promise.all([listMembers(), listWants(), listDrops()]);
+async function currentPlan(): Promise<{ plan: TradePlan; participants: number; waiting: string[] }> {
+  const members = await listMembers();
+  const [wants, drops, transfers] = await Promise.all([listWants(), listDrops(), listTransfers(members)]);
   const byId = new Map(members.map((m) => [m.id, m.name]));
   const participants = drops
     .filter((d) => byId.has(d.memberId))
     .map((d) => ({ name: byId.get(d.memberId)!, stones: d.stones, wants: wants.get(d.memberId) ?? [] }));
-  return { plan: planTrades(participants), participants: participants.length };
+  const posted = new Set(participants.map((p) => p.name));
+  const waiting = members
+    .filter((m) => !posted.has(m.name) && (wants.get(m.id)?.length ?? 0) > 0)
+    .map((m) => m.name)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return { plan: buildPlan(participants, transfers), participants: participants.length, waiting };
 }
 
 export type SyncResult = { ok: true; skipped?: "not-configured" | "nothing-to-say" | "too-soon" } | { ok: false; error: string };
@@ -230,21 +255,30 @@ export async function syncDiscordPlan(options: { minIntervalMs?: number } = {}):
     const known = round?.message_ids ?? [];
     if (options.minIntervalMs && known.length > 0 && round && Date.now() - new Date(round.updated_at).getTime() < options.minIntervalMs) return { ok: true, skipped: "too-soon" };
 
-    // O plano é montado só agora, já com tudo que foi publicado até este instante.
-    const { plan, participants } = await currentPlan();
-    if (participants === 0 && known.length === 0) return { ok: true, skipped: "nothing-to-say" };
+    // O plano é montado só agora, já com tudo que foi publicado até este instante. Se mais alguém publicar enquanto
+    // a mensagem está sendo editada, refaz (até 3 vezes): assim uma edição atrasada nunca deixa o Discord com plano velho.
+    let ids = known;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { plan, participants, waiting } = await currentPlan();
+      if (participants === 0 && ids.length === 0) return { ok: true, skipped: "nothing-to-say" };
+      const version = planSignature(plan) + waiting.join("|");
 
-    const messages = buildMessages(plan, new Date());
-    const ids: string[] = [];
-    for (let i = 0; i < messages.length; i++) {
-      const existing = known[i];
-      if (existing && (await editMessage(url, existing, messages[i]))) ids.push(existing);
-      else ids.push(await postMessage(url, messages[i]));
+      const messages = buildMessages(plan, new Date(), waiting);
+      const next: string[] = [];
+      for (let i = 0; i < messages.length; i++) {
+        const existing = ids[i];
+        if (existing && (await editMessage(url, existing, messages[i]))) next.push(existing);
+        else next.push(await postMessage(url, messages[i]));
+      }
+      for (const extra of ids.slice(messages.length)) await hook(url, "DELETE", `/messages/${extra}`).catch(() => undefined);
+      ids = next;
+
+      const { error } = await db.from("guild_discord_rounds").update({ message_ids: ids, updated_at: new Date().toISOString() }).eq("round_key", key);
+      if (error) throw new Error(`Banco: ${error.message}`);
+
+      const after = await currentPlan();
+      if (planSignature(after.plan) + after.waiting.join("|") === version) break;
     }
-    for (const extra of known.slice(messages.length)) await hook(url, "DELETE", `/messages/${extra}`).catch(() => undefined);
-
-    const { error } = await db.from("guild_discord_rounds").update({ message_ids: ids, updated_at: new Date().toISOString() }).eq("round_key", key);
-    if (error) throw new Error(`Banco: ${error.message}`);
 
     // Limpeza das rodadas antigas (mais de 30 dias).
     void db.from("guild_discord_rounds").delete().lt("updated_at", new Date(Date.now() - 30 * 86400_000).toISOString()).then(() => undefined);

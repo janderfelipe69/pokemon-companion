@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { parseDrops } from "@/config/guildBoost";
-import { GuildDataError, listDrops, listMembers, publishDrops } from "@/lib/guild/boostData";
+import { GuildDataError, listDrops, listMembers, listTransfers, publishDrops, reconcileRound } from "@/lib/guild/boostData";
 import { roundEnd } from "@/lib/guild/boostRound";
 import { getMemberSessionId } from "@/lib/guild/boostSession";
 import { isDiscordConfigured, syncDiscordPlan } from "@/lib/guild/discord";
@@ -17,7 +17,8 @@ const failData = (e: unknown) => (e instanceof GuildDataError ? fail(e.message, 
 export async function GET() {
   try {
     if (!(await getCurrentMember())) return fail("Entre com o seu nick primeiro.", 401);
-    const [members, drops] = await Promise.all([listMembers(), listDrops()]);
+    const members = await listMembers();
+    const [drops, transfers] = await Promise.all([listDrops(), listTransfers(members)]);
     const names = new Map(members.map((m) => [m.id, m.name]));
     const posts = drops
       .filter((d) => names.has(d.memberId))
@@ -28,7 +29,7 @@ export async function GET() {
         stones: d.stones,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    return json({ posts, discord: isDiscordConfigured() });
+    return json({ posts, transfers, discord: isDiscordConfigured() });
   } catch (e) {
     return failData(e);
   }
@@ -51,6 +52,7 @@ export async function PUT(request: Request) {
     if (!stones || stones.length === 0) return fail("Lista de stones inválida.");
 
     await publishDrops(id, stones);
+    await reconcileRound(); // aponta as stones novas (o que já tinha dono não muda)
     after(() => syncDiscordPlan()); // avisa o Discord depois de responder; se falhar, a publicação já está salva
     return json({ ok: true });
   } catch (e) {
@@ -64,6 +66,7 @@ export async function DELETE() {
     const id = await currentMemberId();
     if (!id) return fail("Entre com o seu nick primeiro.", 401);
     await publishDrops(id, []);
+    await reconcileRound();
     after(() => syncDiscordPlan());
     return json({ ok: true });
   } catch (e) {

@@ -1,24 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ClipboardPaste, MessageSquare, RefreshCw, Send } from "lucide-react";
 import { TypeIcon } from "@/components/pokedex/TypeIcon";
 import { BOSS_SCHEDULE_TEXT, isBoostType, ROUND_END_TEXT, type DropStone } from "@/config/guildBoost";
 import { groupByType, parseStones, stonesToDrops, summaryText, type PersonWants } from "@/lib/guild/boostStones";
-import { planText, planTrades, type Participant } from "@/lib/guild/boostTrades";
-import { TradePlanView } from "./TradePlan";
+import type { ActivityEvent } from "@/lib/guild/boostActivity";
+import { buildPlan, changedPeople, leftoverHints, planChanges, planText, type Participant, type PlanChange, type StoredTransfer, type TradePlan } from "@/lib/guild/boostTrades";
+import { ActivityFeed, ChangesBanner, LiveBadge, TradePlanView, WaitingList } from "./TradePlan";
 
 export type DropPost = { name: string; postedAt: string; expiresAt: string; stones: DropStone[] };
 
 type Props = {
   people: PersonWants[] | null;
   posts: DropPost[];
+  /** Trocas já apontadas e guardadas (o que foi apontado para alguém não muda mais). */
+  transfers: readonly StoredTransfer[];
   loading: boolean;
   error: string;
   /** Nick de quem está logado (ou `null`): só quem entrou consegue publicar. */
   me: string | null;
   /** O site tem um webhook do Discord configurado (mostra o botão de atualizar a mensagem). */
   discord: boolean;
+  /** Tempo real conectado (o plano muda na hora) e quando foi a última atualização. */
+  live: boolean;
+  lastSync: number | null;
+  /** O que acabou de acontecer na rodada (quem publicou, atualizou ou retirou). */
+  activity: readonly ActivityEvent[];
   onChanged: () => void;
   onSessionLost: () => void;
 };
@@ -32,13 +40,19 @@ async function readJson(response: Response) {
 }
 
 /** Cole o log do drop, veja quem precisa de cada stone e publique para entrar no plano de trocas da rodada. */
-export function StoneLog({ people, posts, loading, error, me, discord, onChanged, onSessionLost }: Props) {
+export function StoneLog({ people, posts, transfers, loading, error, me, discord, live, lastSync, activity, onChanged, onSessionLost }: Props) {
   const [text, setText] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copiar resumo");
   const [planCopyLabel, setPlanCopyLabel] = useState("Copiar plano");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [planNotice, setPlanNotice] = useState<Notice | null>(null);
+  const [changes, setChanges] = useState<PlanChange[]>([]);
+  const [flash, setFlash] = useState<ReadonlySet<string>>(new Set());
+  const previousPlan = useRef<TradePlan | null>(null);
+  const baseline = useRef<TradePlan | null>(null); // plano de quando o aviso "mudou" começou: o aviso soma tudo desde ali
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const selfActionAt = useRef(0);
 
   const stones = useMemo(() => parseStones(text), [text]);
   const groups = useMemo(() => groupByType(stones, people ?? []), [stones, people]);
@@ -48,13 +62,46 @@ export function StoneLog({ people, posts, loading, error, me, discord, onChanged
   const plan = useMemo(() => {
     const wants = new Map((people ?? []).map((p) => [p.name, p.wants]));
     const participants: Participant[] = posts.filter((post) => wants.has(post.name)).map((post) => ({ name: post.name, stones: post.stones, wants: wants.get(post.name)! }));
-    return planTrades(participants);
-  }, [people, posts]);
+    return buildPlan(participants, transfers);
+  }, [people, posts, transfers]);
   const expiresByName = useMemo(() => new Map(posts.map((p) => [p.name, p.expiresAt])), [posts]);
+  const published = useMemo(() => new Set(posts.map((p) => p.name)), [posts]);
+  const hints = useMemo(() => leftoverHints(plan, people ?? [], published), [plan, people, published]);
+  const waiting = useMemo(() => (people ?? []).filter((p) => !published.has(p.name) && p.wants.length > 0), [people, published]);
+
+  // Cada vez que o plano muda (alguém publicou, retirou ou mudou o que quer): destaca os cartões que mudaram e,
+  // se o SEU plano mudou por causa de outra pessoa, mostra o que é novo. A primeira carga não conta como mudança.
+  useEffect(() => {
+    if (people === null) return;
+    const prev = previousPlan.current;
+    previousPlan.current = plan;
+    if (!prev) return;
+
+    const names = changedPeople(prev, plan);
+    if (names.size > 0) {
+      setFlash(names);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(new Set()), 4000);
+    }
+    if (!me) return;
+    if (Date.now() - selfActionAt.current < 4000) {
+      baseline.current = null; // fui eu que publiquei agora: não precisa avisar do meu próprio plano
+      setChanges([]);
+      return;
+    }
+    if (names.has(me) || baseline.current) {
+      baseline.current ??= prev;
+      const mine = planChanges(baseline.current, plan, me);
+      if (mine.length === 0) baseline.current = null;
+      setChanges(mine);
+    }
+  }, [plan, people, me]);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
   const alreadyPosted = me !== null && posts.some((p) => p.name === me);
   const moved = plan.transfers.reduce((n, t) => n + t.qty, 0);
+  const movedDone = plan.transfers.filter((t) => t.done).reduce((n, t) => n + t.qty, 0);
 
-  async function call(url: string, method: "PUT" | "DELETE" | "POST", body?: unknown) {
+  async function call(url: string, method: "PUT" | "DELETE" | "POST" | "PATCH", body?: unknown) {
     const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
     const data = await readJson(response);
     if (response.status === 401) {
@@ -68,13 +115,29 @@ export function StoneLog({ people, posts, loading, error, me, discord, onChanged
   async function send(method: "PUT" | "DELETE") {
     setBusy(true);
     setNotice(null);
+    selfActionAt.current = Date.now();
     try {
       await call("/api/guild/drops", method, method === "PUT" ? { stones: drops } : undefined);
       if (method === "PUT") setText("");
       setNotice({ kind: "ok", text: method === "PUT" ? `Publicado! Seu drop fica na rodada até as 3h da manhã.` : "Seu drop foi retirado da rodada." });
+      selfActionAt.current = Date.now();
       onChanged();
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : "Erro ao enviar." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Marca (ou desmarca) as trocas de uma linha como feitas. */
+  async function markDone(ids: number[], done: boolean) {
+    setBusy(true);
+    setPlanNotice(null);
+    try {
+      await call("/api/guild/transfers", "PATCH", { ids, done });
+      onChanged();
+    } catch (e) {
+      setPlanNotice({ kind: "error", text: e instanceof Error ? e.message : "Erro ao marcar a troca." });
     } finally {
       setBusy(false);
     }
@@ -224,6 +287,7 @@ export function StoneLog({ people, posts, loading, error, me, discord, onChanged
             <h3 id="plano-trocas" className="text-base font-semibold">
               Plano de trocas
             </h3>
+            <LiveBadge live={live} lastSync={lastSync} />
             <span className="flex-1" />
             <button type="button" onClick={onChanged} disabled={busy} aria-label="Atualizar plano" title="Atualizar agora" className="rounded-lg border border-line p-2 text-muted hover:text-fg disabled:opacity-40">
               <RefreshCw className="size-4" aria-hidden />
@@ -240,12 +304,21 @@ export function StoneLog({ people, posts, loading, error, me, discord, onChanged
 
           {posts.length > 0 && (
             <p className="mt-1 text-sm text-muted">
-              <b className="font-semibold text-fg">{posts.length}</b> {posts.length === 1 ? "pessoa publicou" : "pessoas publicaram"} · <b className="font-semibold text-fg">{moved}</b> {moved === 1 ? "stone" : "stones"} a repassar
+              <b className="font-semibold text-fg">{posts.length}</b> {posts.length === 1 ? "pessoa publicou" : "pessoas publicaram"} · <b className="font-semibold text-fg">{moved}</b> {moved === 1 ? "stone" : "stones"} a repassar{movedDone > 0 && <> · <b className="font-semibold text-teal">{movedDone}</b> já {movedDone === 1 ? "trocada" : "trocadas"}</>}
             </p>
           )}
           <p className="mb-3 mt-1 text-xs text-muted">
-            O site cruza o que cada um tem com o que cada um quer e mostra quem entrega o quê para quem. Atualiza sozinho conforme o pessoal publica. Quem não publicou fica de fora, e tudo some {ROUND_END_TEXT}.
+            O site cruza o que cada um tem com o que cada um quer e mostra quem entrega o quê para quem. Cada stone vai inteira para uma pessoa e, depois de apontada, não muda mais: quem publica depois só pega o que sobrou. Marque “Já troquei” quando entregar ou receber. Quem não publicou fica de fora, e tudo some {ROUND_END_TEXT}.
           </p>
+
+          <ChangesBanner
+            changes={changes}
+            onDismiss={() => {
+              baseline.current = null;
+              setChanges([]);
+            }}
+          />
+          <ActivityFeed events={activity} />
 
           {planNotice && (
             <p role={planNotice.kind === "error" ? "alert" : "status"} className={`mb-3 flex items-start gap-1.5 text-sm ${planNotice.kind === "error" ? "text-red-300" : "text-teal"}`}>
@@ -259,7 +332,10 @@ export function StoneLog({ people, posts, loading, error, me, discord, onChanged
               <p className="mt-1 text-sm text-muted">O boss costuma cair {BOSS_SCHEDULE_TEXT}. Assim que alguém publicar o drop, o plano aparece aqui.</p>
             </div>
           ) : (
-            <TradePlanView plan={plan} me={me} expiresByName={expiresByName} onRetract={() => void send("DELETE")} busy={busy} />
+            <>
+              <TradePlanView plan={plan} me={me} expiresByName={expiresByName} flash={flash} hints={hints} onMarkDone={(ids, done) => void markDone(ids, done)} onRetract={() => void send("DELETE")} busy={busy} />
+              <WaitingList people={waiting} />
+            </>
           )}
         </section>
       </div>

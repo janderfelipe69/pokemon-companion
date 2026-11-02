@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { parseWants } from "@/config/guildBoost";
-import { GuildDataError, listMembers, saveWants } from "@/lib/guild/boostData";
+import { GuildDataError, listDrops, listMembers, reconcileRound, saveWants } from "@/lib/guild/boostData";
 import { getMemberSessionId } from "@/lib/guild/boostSession";
+import { isDiscordConfigured, syncDiscordPlan } from "@/lib/guild/discord";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,11 @@ export async function PUT(request: Request) {
     if (!wants) return fail("Lista de boosts inválida.");
 
     await saveWants(id, wants);
+    // Mudar o que se quer muda o plano: se já tem drop publicado na rodada, o Discord acompanha.
+    if ((await listDrops()).length > 0) {
+      await reconcileRound();
+      if (isDiscordConfigured()) after(() => syncDiscordPlan({ minIntervalMs: 3000 }));
+    }
     return json({ wants });
   } catch (e) {
     if (e instanceof GuildDataError) return fail(e.message, (e as { code?: string }).code === "23503" ? 401 : 500);
