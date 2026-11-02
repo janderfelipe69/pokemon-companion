@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, type Dispatch } from "react";
-import { Copy, Eraser, Plus, Shield, TriangleAlert, X } from "lucide-react";
+import { Cherry, Copy, Eraser, Plus, Shield, TriangleAlert, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import type { DexOption, Indexed } from "@/lib/damageTest/search";
-import { analyze, highestHazard, MODES } from "@/lib/damageTest/solver";
+import { analyze, BRUTE_BERRY_PCT, highestHazard, MODES } from "@/lib/damageTest/solver";
 import { MAX_SLOTS, toMons, type Action, type DamageState, type Slot } from "@/lib/damageTest/state";
 import { AttackRune } from "./AttackRune";
 import { PokemonCombobox } from "./PokemonCombobox";
@@ -32,7 +32,7 @@ export function RotationTab({ state, dispatch, index, byId }: Props) {
     return () => clearTimeout(t);
   }, [confirmDelete]);
 
-  const signature = JSON.stringify([state.cur, state.teams.map((t) => [t.rune, t.slots.map((s) => [s.id ?? s.name, s.dmg, s.lure])])]);
+  const signature = JSON.stringify([state.cur, state.teams.map((t) => [t.rune, t.slots.map((s) => [s.id ?? s.name, s.dmg, s.lure, s.berry])])]);
   const shown = result && result.cur === state.cur ? result : null;
   const stale = shown !== null && shown.sig !== signature;
   const filled = team.slots.filter((s) => nameOf(s).trim()).length;
@@ -105,6 +105,7 @@ export function RotationTab({ state, dispatch, index, byId }: Props) {
           <span className="flex-1">Pokémon (da Pokédex)</span>
           <span className="w-28">Dano (k)</span>
           <span className="w-16 text-center">Lure</span>
+          <span className="w-16 text-center">Berry</span>
           <span className="w-9" />
         </div>
         <ul className="space-y-2">
@@ -142,6 +143,17 @@ export function RotationTab({ state, dispatch, index, byId }: Props) {
                 <Shield className="size-4" aria-hidden />
                 <span className="sr-only">Faz o lure</span>
               </label>
+              <label className="flex w-16 cursor-pointer items-center justify-center gap-1.5 text-sm text-muted" title={`Brute Berry: +${BRUTE_BERRY_PCT}% de dano neste Pokémon`}>
+                <input
+                  type="checkbox"
+                  className="size-5 accent-[var(--color-gold)]"
+                  checked={s.berry}
+                  disabled={!s.id && !s.name}
+                  onChange={(e) => dispatch({ type: "berry", slot: i, value: e.target.checked })}
+                />
+                <Cherry className="size-4" aria-hidden />
+                <span className="sr-only">Usa Brute Berry</span>
+              </label>
               <button type="button" className={btnIcon} aria-label={`Remover espaço ${i + 1}`} onClick={() => dispatch({ type: "remove-slot", slot: i })}>
                 <X className="size-4" aria-hidden />
               </button>
@@ -163,6 +175,10 @@ export function RotationTab({ state, dispatch, index, byId }: Props) {
           <p>
             <b className="text-fg">Lure:</b> marque nos pokémons que fazem o lure (offtank). No 3x3 cada time precisa de pelo menos 1 lure (pode ter mais). No 2x2x2
             cada dupla tem 1 lure + 1 normal.
+          </p>
+          <p>
+            <b className="text-fg">Berry:</b> simula a <b className="text-fg">Brute Berry</b> (+{BRUTE_BERRY_PCT}% de dano só no pokémon marcado, dura 1 h). Marque em quantos quiser, até nos 6, e veja até qual hazard dá para subir antes de
+            comprar. Digite o dano <b className="text-fg">sem</b> a berry; o app soma o bônus (junto com o da runa).
           </p>
           <p>Digite o dano que o jogo mostra para cada pokémon. Os Pokémon e os danos ficam salvos neste navegador: da próxima vez, só atualize os danos.</p>
         </div>

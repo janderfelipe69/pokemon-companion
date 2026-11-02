@@ -13,6 +13,8 @@ export type Slot = {
   /** Dano em k, como digitado. */
   dmg: string;
   lure: boolean;
+  /** Usa Brute Berry (+5% de dano só neste Pokémon). */
+  berry: boolean;
   /** Último dano já registrado no histórico (para detectar mudanças). */
   prev: number;
 };
@@ -24,7 +26,7 @@ export type DamageLog = { team: string; id: string | null; name: string; old: nu
 
 export type DamageState = { teams: DamageTeam[]; cur: number; logs: DamageLog[] };
 
-export const blankSlot = (): Slot => ({ id: null, name: "", dmg: "", lure: false, prev: 0 });
+export const blankSlot = (): Slot => ({ id: null, name: "", dmg: "", lure: false, berry: false, prev: 0 });
 export const blankSlots = (): Slot[] => Array.from({ length: MAX_SLOTS }, blankSlot);
 
 export const initialState = (): DamageState => ({ teams: [{ name: "Time 1", slots: blankSlots(), rune: 0 }], cur: 0, logs: [] });
@@ -34,6 +36,7 @@ export type Action =
   | { type: "pick"; slot: number; id: string; name: string }
   | { type: "dmg"; slot: number; value: string }
   | { type: "lure"; slot: number; value: boolean }
+  | { type: "berry"; slot: number; value: boolean }
   | { type: "add-slot" }
   | { type: "remove-slot"; slot: number }
   | { type: "clear-list" }
@@ -68,6 +71,8 @@ export function damageReducer(state: DamageState, action: Action): DamageState {
       return withSlot(state, action.slot, (s) => ({ ...s, dmg: action.value }));
     case "lure":
       return withSlot(state, action.slot, (s) => ({ ...s, lure: action.value }));
+    case "berry":
+      return withSlot(state, action.slot, (s) => ({ ...s, berry: action.value }));
     case "add-slot":
       return withTeam(state, (t) => (t.slots.length >= MAX_SLOTS ? t : { ...t, slots: [...t.slots, blankSlot()] }));
     case "remove-slot":
@@ -131,7 +136,7 @@ export function toMons(slots: readonly Slot[], nameOf: (s: Slot) => string): Mon
   return slots.flatMap((s) => {
     const name = nameOf(s).trim();
     const dmg = parseDmg(s.dmg);
-    return name && dmg > 0 ? [{ id: s.id, name, dmg, lure: s.lure }] : [];
+    return name && dmg > 0 ? [{ id: s.id, name, dmg, lure: s.lure, berry: s.berry }] : [];
   });
 }
 
@@ -168,6 +173,7 @@ export function parseSaved(raw: string | null): DamageState | null {
         name: str(s.name),
         dmg: str(s.dmg),
         lure: s.lure === true,
+        berry: s.berry === true,
         prev: num(s.prev),
       }));
       // Antes a runa era uma só para todos os times: quem salvou assim passa a ter esse valor em cada time.

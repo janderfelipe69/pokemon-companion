@@ -1,10 +1,10 @@
-import { CircleCheck, CircleX, Lightbulb, Minus, Shield, TriangleAlert } from "lucide-react";
+import { Cherry, CircleCheck, CircleX, Lightbulb, Minus, Shield, TriangleAlert } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { fmtK, fmtNum, fmtSignedK } from "@/lib/damageTest/format";
 import {
   dropsFor, effectsOf, ESTIMATED_HAZARDS, HAZARDS, precisionFor, requiredDamage,
 } from "@/lib/damageTest/hazards";
-import { MODES, pokebarOrder, type Analysis, type Hint, type ModeAnalysis, type Plan } from "@/lib/damageTest/solver";
+import { BRUTE_BERRY_PCT, MODES, pokebarOrder, type Analysis, type Hint, type ModeAnalysis, type Plan } from "@/lib/damageTest/solver";
 import type { DexOption } from "@/lib/damageTest/search";
 import { PokemonThumb } from "./PokemonThumb";
 import { badText, okText, td, th } from "./ui";
@@ -40,6 +40,11 @@ function TeamCard({ index, total, required, members, lookup }: { index: number; 
             {m.lure && (
               <span className="inline-flex items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-xs text-muted">
                 <Shield className="size-3" aria-hidden /> lure
+              </span>
+            )}
+            {m.berry && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-gold/40 px-1.5 py-0.5 text-xs text-gold" title={`Brute Berry: +${BRUTE_BERRY_PCT}%`}>
+                <Cherry className="size-3" aria-hidden /> berry
               </span>
             )}
             <b className="tabular-nums">{fmtK(m.dmg)}</b>
@@ -117,6 +122,7 @@ function ModeSection({ m, lookup }: { m: ModeAnalysis; lookup: Lookup }) {
           {b ? `${fx.damageDealt} dano causado · ${fx.damageTaken} dano recebido` : "sem penalidades"} · Drops: {dropsFor(b)} · Diferença entre times:{" "}
           <b className="text-fg">{fmtK(plan.spread)}</b> · Menor margem: <b className="text-fg">{fmtK(plan.minMargin)}</b>
           {r.runePct > 0 && <> · Runas: <b className="text-fg">+{fmtNum(r.runePct)}%</b></>}
+          {r.berryCount > 0 && <> · Brute Berry: <b className="text-fg">{r.berryCount} {r.berryCount === 1 ? "pokémon" : "pokémons"} (+{BRUTE_BERRY_PCT}% cada)</b></>}
         </p>
         {r.lureCount > 0 && (
           <p className="mt-2 text-sm text-muted">

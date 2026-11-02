@@ -1,8 +1,11 @@
 import { round1 } from "./format";
 import { HAZARDS, requiredDamage } from "./hazards";
 
-/** Pokémon já validado: tem nome e dano maior que zero. `dmg` em k, sem o bônus das runas. */
-export type Mon = { id: string | null; name: string; dmg: number; lure: boolean };
+/** Bônus de dano (em %) que a Brute Berry dá ao Pokémon que a usa. Soma com o da runa. */
+export const BRUTE_BERRY_PCT = 5;
+
+/** Pokémon já validado: tem nome e dano maior que zero. `dmg` em k, sem o bônus da runa nem da Brute Berry. */
+export type Mon = { id: string | null; name: string; dmg: number; lure: boolean; berry?: boolean };
 
 /**
  * Ordem de cada rotação, igual à da Pokébar: quem tem lure primeiro, depois o Pokémon normal
@@ -38,7 +41,7 @@ export type Fallback = { teams: TeamPlan[]; worst: number; spread: number };
 
 export type Objective = "equal" | "max-min";
 
-export type SolveOk = { ok: true; required: number; plan: Plan | null; fallback: Fallback | null; lureCount: number; runePct: number };
+export type SolveOk = { ok: true; required: number; plan: Plan | null; fallback: Fallback | null; lureCount: number; runePct: number; berryCount: number };
 export type SolveError = { ok: false; kind: "count" | "lure"; message: string };
 export type SolveResult = SolveOk | SolveError;
 
@@ -66,9 +69,9 @@ function better(a: Plan, b: Plan, objective: Objective): boolean {
 export function solve(mons: readonly Mon[], opts: { required: number; mode: Mode; objective?: Objective; runePct?: number }): SolveResult {
   const { required, mode, objective = "equal", runePct = 0 } = opts;
   const { size: S, groups: K } = mode;
-  const factor = 1 + runePct / 100;
   const req = round1(required);
-  const pool = mons.map((m) => ({ ...m, dmg: round1(m.dmg * factor) }));
+  // A runa vale para todos; a Brute Berry só para quem a usa. Os dois bônus somam (ex.: runa 6% + berry 5% = +11%).
+  const pool = mons.map((m) => ({ ...m, dmg: round1(m.dmg * (1 + (runePct + (m.berry ? BRUTE_BERRY_PCT : 0)) / 100)) }));
   const N = pool.length;
 
   if (N !== S * K) {
@@ -125,7 +128,7 @@ export function solve(mons: readonly Mon[], opts: { required: number; mode: Mode
   };
   rec(0);
 
-  return { ok: true, required: req, plan, fallback, lureCount, runePct };
+  return { ok: true, required: req, plan, fallback, lureCount, runePct, berryCount: pool.filter((p) => p.berry).length };
 }
 
 /** Maior hazard que o time fecha em um modo (ou o tipo de erro que impediu a conta). */

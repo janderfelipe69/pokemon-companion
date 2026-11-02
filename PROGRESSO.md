@@ -310,3 +310,10 @@ Modificados: `src/types/pokemon.ts`, `src/lib/supabase/catalog.ts`, `src/lib/pok
 - **Tempo real:** a tela escuta `guild_boost_drops`, `guild_boost_wants` e `guild_boost_transfers` (migração `0021_guild_realtime.sql` + a 0022). Sem tempo real, polling de 8 s. Selo "Ao vivo", feed de atividade, aviso "Seu plano mudou" (agora = coisas novas para você), destaque das linhas que envolvem você, "Ainda não publicaram" e, nas sobras, quem ainda pode pegar.
 - **Discord:** usa as trocas guardadas (✅ nas feitas), bloco "⏳ Ainda não publicaram", atualiza ao publicar, mudar o que quer ou marcar troca, e se refaz se duas edições se cruzarem.
 - **Ordem das migrações:** 0011 → 0021 → 0022.
+
+---
+
+## Teste de dano: Brute Berry
+- Cada Pokémon do time tem uma caixinha **Berry** (ao lado do Lure): marca que ele usaria a Brute Berry (+5% de dano só nele, dura 1 h; vem da doação no buff global). Dá para marcar em quantos quiser, até nos 6.
+- O dano digitado é **sem** a berry; o solver soma o bônus por Pokémon (`BRUTE_BERRY_PCT` em `src/lib/damageTest/solver.ts`). Soma com a runa do time (runa 6% + berry 5% = +11% no marcado). O resultado mostra "berry" nos Pokémon marcados e quantos usam.
+- Salvo por time no navegador (`Slot.berry`); salvamentos antigos carregam com a berry desligada. Para comparar "com" e "sem", use **Duplicar** time e marque a berry só na cópia.
