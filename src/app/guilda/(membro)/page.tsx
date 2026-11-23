@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Gem, Package, Target, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Package, Target, Users, type LucideIcon } from "lucide-react";
 import { HomeShortcut } from "@/components/home/HomeShortcut";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { GUILD } from "@/config/guild";
@@ -11,13 +11,16 @@ const item = (href: string, label: string, description: string, icon: LucideIcon
 
 const sections = [
   {
+    title: "Troca",
+    hint: "Entre os membros da guilda",
+    accent: "gold" as const,
+    items: [item("/guilda/troca", "Troca", "Medalhas e boosts: liste o que tem e o que quer, e veja quem combina com você", ArrowLeftRight)],
+  },
+  {
     title: "Boosts",
     hint: "Stones do boss da guilda",
     accent: "gold" as const,
-    items: [
-      item("/guilda/boosts", "Meus boosts", "Escolha os tipos e níveis de stone que você quer receber", Gem),
-      item("/guilda/drops", "Drops do boss", "Cole o log, publique e veja o plano de trocas", Package),
-    ],
+    items: [item("/guilda/drops", "Drops do boss", "Cole o log, publique e veja o plano de trocas", Package)],
   },
   {
     title: "Missões",
@@ -38,7 +41,7 @@ export default async function GuildHubPage() {
 
   return (
     <div className="space-y-10">
-      <PageHeader title="Guilda" description="Tudo o que é só dos membros: boosts, trocas de stones e times para as missões." />
+      <PageHeader title="Guilda" description="Tudo o que é só dos membros: trocas, boosts e times para as missões." />
 
       {/* O banner que a guilda usa hoje (quem troca é só o admin). */}
       <Link href="/guilda/banner" className="group flex items-center gap-5 rounded-2xl border border-gold/30 bg-gradient-to-r from-raised via-panel to-panel p-4 transition-colors hover:border-gold/60 sm:p-5">

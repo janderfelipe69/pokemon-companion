@@ -1,10 +1,6 @@
 import { redirect } from "next/navigation";
-import { BoostsView } from "@/components/guild/BoostsView";
-import { getCurrentMember } from "@/lib/guild/currentMember";
 
-export const dynamic = "force-dynamic";
-
-export default async function BoostsPage() {
-  if (!(await getCurrentMember())) redirect("/guilda"); // o layout mostra a tela de entrada
-  return <BoostsView />;
+/** O antigo “Meus boosts” agora é a aba “Troca de boosts”. Mantém links e favoritos antigos funcionando. */
+export default function OldBoostsPage() {
+  redirect("/guilda/troca/boosts");
 }

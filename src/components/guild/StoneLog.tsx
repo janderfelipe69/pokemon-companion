@@ -106,7 +106,7 @@ export function StoneLog({ people, posts, transfers, loading, error, me, discord
     const data = await readJson(response);
     if (response.status === 401) {
       onSessionLost();
-      throw new Error(String(data.error || "Sua sessão acabou. Entre de novo em Meus boosts."));
+      throw new Error(String(data.error || "Sua sessão acabou. Entre de novo na Troca de boosts."));
     }
     if (!response.ok) throw new Error(String(data.error || "Não foi possível concluir."));
     return data;
@@ -220,7 +220,7 @@ export function StoneLog({ people, posts, transfers, loading, error, me, discord
                 </>
               ) : (
                 <p className="text-sm text-muted">
-                  Entre com o seu nick na aba <b className="text-fg">Meus boosts</b> para publicar.
+                  Entre com o seu nick na aba <b className="text-fg">Troca</b> para publicar.
                 </p>
               )}
             </div>

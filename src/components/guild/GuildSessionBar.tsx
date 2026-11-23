@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, LogOut } from "lucide-react";
+import { MedalBell } from "./trade/MedalBell";
 
 /** Faixa no topo da área da guilda: voltar para o hub, quem está logado e o botão de sair. */
 export function GuildSessionBar({ name }: { name: string }) {
@@ -27,6 +28,7 @@ export function GuildSessionBar({ name }: { name: string }) {
         </Link>
       )}
       <div className="flex items-center gap-3">
+        <MedalBell />
         {!atHub && (
           <span className="text-sm text-muted">
             Logado como <b className="font-semibold text-gold">{name}</b>

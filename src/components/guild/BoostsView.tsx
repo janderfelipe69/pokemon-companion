@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { normalizeWants, sameWants, STONE_TIERS, type BoostWant } from "@/config/guildBoost";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { BoostTypePicker } from "./BoostTypePicker";
 
 async function readJson(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
 
-/** "Meus boosts": o jogador (já logado) marca os tipos e níveis de stone que quer receber do boss. */
+/** "Troca de boosts": o jogador (já logado) marca os tipos e níveis de stone que quer receber do boss. */
 export function BoostsView() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -66,7 +65,10 @@ export function BoostsView() {
 
   return (
     <>
-      <PageHeader title="Meus boosts" description="Escolha os tipos de stone que você quer receber do boss e, de cada tipo, quais níveis (Novice a Advanced). Quando o drop é publicado, o site mostra quem precisa de cada stone." />
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold tracking-tight">Troca de boosts</h2>
+        <p className="mt-1 max-w-2xl text-sm text-muted">Escolha os tipos de stone que você quer receber do boss e, de cada tipo, quais níveis (Novice a Advanced). Quando o drop é publicado, o site mostra quem precisa de cada stone.</p>
+      </div>
       {loading ? (
         <p className="text-sm text-muted">Carregando...</p>
       ) : (
