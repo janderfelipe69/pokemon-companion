@@ -6,7 +6,7 @@ import type { NavItem } from "@/config/navigation";
 export const dynamic = "force-dynamic";
 
 const channels: NavItem[] = [
-  { href: "/guilda/troca/medalhas", label: "Troca de medalhas", description: "Liste as medalhas que você tem, escolha o que aceita em troca e veja quem combina", icon: Medal },
+  { href: "/guilda/troca/medalhas", label: "Troca de medalhas", description: "Marque as medalhas que você tem e as que quer, e veja quem combina com você", icon: Medal },
   { href: "/guilda/troca/boosts", label: "Troca de boosts", description: "Escolha os tipos e níveis de stone que você quer receber do boss", icon: Gem },
 ];
 

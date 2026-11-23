@@ -14,7 +14,7 @@ const sections = [
     title: "Troca",
     hint: "Entre os membros da guilda",
     accent: "gold" as const,
-    items: [item("/guilda/troca", "Troca", "Medalhas e boosts: liste o que tem e o que quer, e veja quem combina com você", ArrowLeftRight)],
+    items: [item("/guilda/troca", "Troca", "Medalhas e boosts: marque o que tem e o que quer, e veja quem combina com você", ArrowLeftRight)],
   },
   {
     title: "Boosts",

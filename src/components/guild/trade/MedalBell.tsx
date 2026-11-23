@@ -7,7 +7,7 @@ import { createPublicClient } from "@/lib/supabase/client";
 
 const POLL_MS = 30_000;
 
-/** Sino da guilda: quantas pessoas têm uma troca nova de medalha com você. Leva direto para as suas medalhas. */
+/** Sino da guilda: quantas pessoas têm uma troca nova de medalha com você. Leva direto para as trocas possíveis. */
 export function MedalBell() {
   const [unread, setUnread] = useState(0);
 
@@ -33,7 +33,7 @@ export function MedalBell() {
     const channel = client
       ?.channel("guild-medal-bell")
       .on("postgres_changes", { event: "*", schema: "public", table: "guild_medal_offers" }, kick)
-      .on("postgres_changes", { event: "*", schema: "public", table: "guild_medal_offer_wants" }, kick)
+      .on("postgres_changes", { event: "*", schema: "public", table: "guild_medal_wants" }, kick)
       .subscribe();
     const tick = () => {
       if (document.visibilityState === "visible") void load();
@@ -52,7 +52,7 @@ export function MedalBell() {
 
   return (
     <Link
-      href="/guilda/troca/medalhas?aba=minhas"
+      href="/guilda/troca/medalhas?aba=trocas"
       aria-label={unread > 0 ? `${unread} ${unread === 1 ? "match novo" : "matches novos"} na troca de medalhas` : "Matches da troca de medalhas"}
       title={unread > 0 ? `${unread} ${unread === 1 ? "pessoa com troca nova" : "pessoas com troca nova"}` : "Sem trocas novas"}
       className="relative inline-flex items-center rounded-lg border border-line px-2.5 py-1.5 text-muted hover:text-fg"
