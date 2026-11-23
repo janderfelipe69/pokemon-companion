@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { listMembers } from "@/lib/guild/boostData";
 import { getCurrentMember } from "@/lib/guild/currentMember";
-import { completeTrade, listListings, MedalTradeError, setListing, syncNotifications, unreadOthers } from "@/lib/guild/medalTradeData";
-import { MAX_MEDAL_QTY } from "@/lib/guild/medalTrades";
+import { completeTrade, listOffers, MedalTradeError, setOffer, setWants, syncNotifications, unreadOthers } from "@/lib/guild/medalTradeData";
+import { candidatesFor, MAX_MEDAL_QTY, MAX_WANTS } from "@/lib/guild/medalTrades";
 import { getMedals } from "@/lib/supabase/medals";
 
 export const runtime = "nodejs";
@@ -14,36 +14,46 @@ const failAny = (e: unknown) => (e instanceof MedalTradeError ? fail(e.message, 
 
 const int = (value: unknown) => (typeof value === "number" && Number.isInteger(value) ? value : null);
 
-async function knownMedal(id: number | null): Promise<boolean> {
-  if (id === null || id < 1) return false;
-  return (await getMedals()).medals.some((m) => m.id === id);
+async function medalIds(): Promise<Set<number>> {
+  return new Set((await getMedals()).medals.map((m) => m.id));
 }
 
-/** Todas as listas da guilda (quem tem e quem quer cada medalha) + os membros + quem tem match novo para o jogador logado. */
+/** Todas as ofertas da guilda (cada uma com o que aceita em troca) + os membros + quem tem troca nova para o jogador logado. */
 export async function GET() {
   try {
     const me = await getCurrentMember();
     if (!me) return fail("Entre com o seu nick primeiro.", 401);
-    const [listings, members, unread] = await Promise.all([listListings(), listMembers(), unreadOthers(me.id)]);
-    return json({ me: { id: me.id, name: me.name }, members, listings, unread });
+    const [offers, members, unread] = await Promise.all([listOffers(), listMembers(), unreadOthers(me.id)]);
+    return json({ me: { id: me.id, name: me.name }, members, offers, unread });
   } catch (e) {
     return failAny(e);
   }
 }
 
-/** Define a quantidade de uma medalha na lista do jogador logado: `{ medalId, kind: "have" | "want", qty }` (qty 0 remove). */
+/**
+ * Mexe nas ofertas do jogador logado:
+ * `{ medalId, qty }` coloca, muda ou remove (qty 0) uma medalha para trocar;
+ * `{ medalId, wants: [medalIds] }` define o que ele aceita em troca daquela oferta.
+ */
 export async function PUT(request: Request) {
   try {
     const me = await getCurrentMember();
     if (!me) return fail("Entre com o seu nick primeiro.", 401);
-    const body = (await request.json().catch(() => null)) as { medalId?: unknown; kind?: unknown; qty?: unknown } | null;
+    const body = (await request.json().catch(() => null)) as { medalId?: unknown; qty?: unknown; wants?: unknown } | null;
     const medalId = int(body?.medalId);
-    const qty = int(body?.qty);
-    if (body?.kind !== "have" && body?.kind !== "want") return fail("Escolha a lista: tenho ou quero.");
-    if (qty === null || qty < 0 || qty > MAX_MEDAL_QTY) return fail(`A quantidade vai de 0 a ${MAX_MEDAL_QTY}.`);
-    if (medalId === null || !(await knownMedal(medalId))) return fail("Medalha desconhecida.");
+    const known = await medalIds();
+    if (medalId === null || !known.has(medalId)) return fail("Medalha desconhecida.");
 
-    await setListing(me.id, medalId, body.kind, qty);
+    if (Array.isArray(body?.wants)) {
+      const wants = [...new Set(body.wants as unknown[])];
+      if (wants.length > MAX_WANTS) return fail(`No máximo ${MAX_WANTS} medalhas aceitas em troca.`);
+      if (!wants.every((w): w is number => typeof w === "number" && Number.isInteger(w) && known.has(w))) return fail("Lista de medalhas inválida.");
+      await setWants(me.id, medalId, wants);
+    } else {
+      const qty = int(body?.qty);
+      if (qty === null || qty < 0 || qty > MAX_MEDAL_QTY) return fail(`A quantidade vai de 0 a ${MAX_MEDAL_QTY}.`);
+      await setOffer(me.id, medalId, qty);
+    }
     await syncNotifications(me.id);
     return json({ ok: true });
   } catch (e) {
@@ -51,24 +61,28 @@ export async function PUT(request: Request) {
   }
 }
 
-/** Troca feita: `{ action: "done", otherId, medalId, direction: "give" | "get", qty }`. A medalha some das duas listas (só a quantidade trocada). */
+/** Troca feita: `{ action: "done", otherId, myMedalId, theirMedalId, qty }`. As duas ofertas diminuem (e somem se chegarem a 0). */
 export async function POST(request: Request) {
   try {
     const me = await getCurrentMember();
     if (!me) return fail("Entre com o seu nick primeiro.", 401);
-    const body = (await request.json().catch(() => null)) as { action?: unknown; otherId?: unknown; medalId?: unknown; direction?: unknown; qty?: unknown } | null;
+    const body = (await request.json().catch(() => null)) as { action?: unknown; otherId?: unknown; myMedalId?: unknown; theirMedalId?: unknown; qty?: unknown } | null;
     if (body?.action !== "done") return fail("Ação inválida.");
 
     const otherId = int(body.otherId);
-    const medalId = int(body.medalId);
+    const myMedalId = int(body.myMedalId);
+    const theirMedalId = int(body.theirMedalId);
     const qty = int(body.qty);
-    if (otherId === null || otherId === me.id || !(await listMembers()).some((m) => m.id === otherId)) return fail("Membro inválido.");
-    if (medalId === null || !(await knownMedal(medalId))) return fail("Medalha desconhecida.");
-    if (qty === null || qty < 1 || qty > MAX_MEDAL_QTY) return fail("Quantidade inválida.");
-    if (body.direction !== "give" && body.direction !== "get") return fail("Direção inválida.");
+    if (otherId === null || myMedalId === null || theirMedalId === null || qty === null || qty < 1 || qty > MAX_MEDAL_QTY) return fail("Troca inválida.");
 
-    // give: eu entrego a medalha; get: eu recebo. Os dois lados podem marcar como feita.
-    await completeTrade(body.direction === "give" ? me.id : otherId, body.direction === "give" ? otherId : me.id, medalId, qty);
+    // Só vale entre duas ofertas que existem e que combinam (pelo menos um lado aceita o outro), na quantidade possível.
+    const offers = await listOffers();
+    const mine = offers.find((o) => o.memberId === me.id && o.medalId === myMedalId);
+    const match = mine && candidatesFor(offers, mine).find((c) => c.otherId === otherId && c.theirMedalId === theirMedalId);
+    if (!match) return fail("Essa troca não existe mais. A tela vai atualizar.", 409);
+    if (qty > match.qty) return fail(`Dá para trocar no máximo ${match.qty}.`, 409);
+
+    await completeTrade(me.id, myMedalId, otherId, theirMedalId, qty);
     await syncNotifications(me.id);
     return json({ ok: true });
   } catch (e) {

@@ -10,6 +10,8 @@ export function GuildSessionBar({ name }: { name: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const atHub = pathname === "/guilda";
+  /** Dentro de um canal de troca, o "voltar" leva para a escolha do canal. */
+  const back = pathname.startsWith("/guilda/troca/") ? { href: "/guilda/troca", label: "Voltar para troca" } : { href: "/guilda", label: "Voltar para a guilda" };
 
   async function logout() {
     await fetch("/api/guild/session", { method: "DELETE" }).catch(() => undefined);
@@ -23,8 +25,8 @@ export function GuildSessionBar({ name }: { name: string }) {
           Olá, <b className="font-semibold text-gold">{name}</b>!
         </p>
       ) : (
-        <Link href="/guilda" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
-          <ArrowLeft className="size-4" aria-hidden /> Voltar para a guilda
+        <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
+          <ArrowLeft className="size-4" aria-hidden /> {back.label}
         </Link>
       )}
       <div className="flex items-center gap-3">

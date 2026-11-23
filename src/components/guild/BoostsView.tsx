@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { normalizeWants, sameWants, STONE_TIERS, type BoostWant } from "@/config/guildBoost";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { BoostTypePicker } from "./BoostTypePicker";
 
 async function readJson(response: Response) {
@@ -65,10 +66,7 @@ export function BoostsView() {
 
   return (
     <>
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold tracking-tight">Troca de boosts</h2>
-        <p className="mt-1 max-w-2xl text-sm text-muted">Escolha os tipos de stone que você quer receber do boss e, de cada tipo, quais níveis (Novice a Advanced). Quando o drop é publicado, o site mostra quem precisa de cada stone.</p>
-      </div>
+      <PageHeader title="Troca de boosts" description="Escolha os tipos de stone que você quer receber do boss e, de cada tipo, quais níveis (Novice a Advanced). Quando o drop é publicado, o site mostra quem precisa de cada stone." />
       {loading ? (
         <p className="text-sm text-muted">Carregando...</p>
       ) : (
